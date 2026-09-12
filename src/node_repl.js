@@ -40,7 +40,17 @@ function prepareReplAST(ast) {
 async function startREPL(options = {}) {
     const projectRoot = path.resolve(options.projectRoot || path.join(__dirname, ".."));
     const cwd = path.resolve(options.cwd || process.cwd());
-    const host = options.host || new NodeHost({ projectRoot, cwd });
+    
+    // Create readline interface first
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        prompt: "DK> "
+    });
+
+    // Pass `rl` as `activeReadline` to the host so they share the same input stream
+    const host = options.host || new NodeHost({ projectRoot, cwd, activeReadline: rl });
+
     const logger = options.logger || createCliLogger({
         sink: (msg) => console.log(msg),
         debug: options.debug
@@ -54,13 +64,7 @@ async function startREPL(options = {}) {
     vm.Compiler = Compiler;
     vm.Minifier = Minifier;
 
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        prompt: "DK> "
-    });
-
-    readline.emitKeypressEvents(process.stdin);
+    // Only set raw mode to prevent OS local-echo; omit emitKeypressEvents to avoid duplication
     if (process.stdin.isTTY) {
         process.stdin.setRawMode(true);
     }
