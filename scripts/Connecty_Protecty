@@ -1,0 +1,529 @@
+~ ==============================================================================
+~ CONNECTY PROTECTY 
+~ A custom tactical board game written in DK (v16)
+~ ==============================================================================
+
+~ 1. GLOBAL GAME STATE
+grid = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+
+current_player = 1
+game_over = 0
+player_turns = [0, 0]
+player_two_is_cpu = 1
+
+~ 2. INPUT WRAPPER VIA HOST BRIDGE
+get_text(prompt_message)
+    raw_input = null
+    if host_has(^read_line)
+        raw_input = host_call(^read_line, [prompt_message])
+    #
+    if raw_input == null
+        raw_input = input(prompt_message)
+    #
+    if raw_input == null
+        @ ""
+    #
+@ str(raw_input).trim()
+
+get_coordinate(prompt_message)
+    trimmed = get_text(prompt_message)
+    if trimmed == ""
+        @ 0
+    #
+    lowered = lower(trimmed)
+    if lowered == "q"
+        @ -1
+    #
+    if lowered == "quit"
+        @ -1
+    #
+    if has(trimmed, "^[0-9]+$") == false
+        @ 0
+    #
+    slot = floor(trimmed)
+    if slot < 1
+        @ 0
+    #
+    if slot > 16
+        @ 0
+    #
+@ slot
+
+select_game_mode()
+    for true
+        choice = lower(get_text("Select mode: 1 = single player, 2 = multiplayer, q = quit: "))
+        if choice == "1"
+            @ 1
+        #
+        if choice == "2"
+            @ 2
+        #
+        if choice == "q"
+            @ 0
+        #
+        if choice == "quit"
+            @ 0
+        #
+        print "Please enter 1, 2, or q."
+    #
+@
+
+~ 3. BOARD RENDERING ENGINE
+draw_board()
+    margin = "    "
+    divider = "    -----------------"
+    print divider
+    
+    for r 1..4
+        row_str = margin + "|"
+        for c 1..4
+            idx = (r - 1) * 4 + c
+            val = grid[idx]
+            
+            cell = padStart(str(idx), 2, " ") + " "
+            if val == 1
+                cell = " X "
+            #
+            if val == 2
+                cell = "[X]"
+            #
+            if val == 3
+                cell = " O "
+            #
+            if val == 4
+                cell = "[O]"
+            #
+            
+            row_str = row_str + cell + "|"
+        #
+        print row_str
+        print divider
+    #
+@
+
+~ 4. TACTICAL RULES & EVALUATION FUNCTIONS
+is_own_piece(idx, player)
+    val = grid[idx]
+    if player == 1
+        if val == 1
+            @ 1
+        #
+        if val == 2
+            @ 1
+        #
+    #
+    if player == 2
+        if val == 3
+            @ 1
+        #
+        if val == 4
+            @ 1
+        #
+    #
+@ 0
+
+check_line(player, i1, i2, i3, i4)
+    if is_own_piece(i1, player) == 1
+        if is_own_piece(i2, player) == 1
+            if is_own_piece(i3, player) == 1
+                if is_own_piece(i4, player) == 1
+                    @ 1
+                #
+            #
+        #
+    #
+@ 0
+
+evaluate_victory(player)
+    if check_line(player, 1, 2, 3, 4) == 1
+        @ 1
+    #
+    if check_line(player, 5, 6, 7, 8) == 1
+        @ 1
+    #
+    if check_line(player, 9, 10, 11, 12) == 1
+        @ 1
+    #
+    if check_line(player, 13, 14, 15, 16) == 1
+        @ 1
+    #
+    
+    if check_line(player, 1, 5, 9, 13) == 1
+        @ 1
+    #
+    if check_line(player, 2, 6, 10, 14) == 1
+        @ 1
+    #
+    if check_line(player, 3, 7, 11, 15) == 1
+        @ 1
+    #
+    if check_line(player, 4, 8, 12, 16) == 1
+        @ 1
+    #
+    
+    if check_line(player, 1, 6, 11, 16) == 1
+        @ 1
+    #
+    if check_line(player, 4, 7, 10, 13) == 1
+        @ 1
+    #
+    
+@ 0
+
+opponent_of(player)
+    if player == 1
+        @ 2
+    #
+@ 1
+
+is_legal_placement(idx, player)
+    if idx < 1
+        @ 0
+    #
+    if idx > 16
+        @ 0
+    #
+
+    opp_unprotected = 3
+    if player == 2
+        opp_unprotected = 1
+    #
+
+    if grid[idx] == 0
+        @ 1
+    #
+    if grid[idx] == opp_unprotected
+        @ 1
+    #
+@ 0
+
+find_line_completion(target_player, acting_player, i1, i2, i3, i4)
+    marks = 0
+    open_slots = 0
+    target_idx = 0
+
+    if is_own_piece(i1, target_player) == 1
+        marks += 1
+    #
+    if is_own_piece(i1, target_player) == 0 and is_legal_placement(i1, acting_player) == 1
+        open_slots += 1
+        target_idx = i1
+    #
+
+    if is_own_piece(i2, target_player) == 1
+        marks += 1
+    #
+    if is_own_piece(i2, target_player) == 0 and is_legal_placement(i2, acting_player) == 1
+        open_slots += 1
+        target_idx = i2
+    #
+
+    if is_own_piece(i3, target_player) == 1
+        marks += 1
+    #
+    if is_own_piece(i3, target_player) == 0 and is_legal_placement(i3, acting_player) == 1
+        open_slots += 1
+        target_idx = i3
+    #
+
+    if is_own_piece(i4, target_player) == 1
+        marks += 1
+    #
+    if is_own_piece(i4, target_player) == 0 and is_legal_placement(i4, acting_player) == 1
+        open_slots += 1
+        target_idx = i4
+    #
+
+    if marks == 3 and open_slots == 1
+        @ target_idx
+    #
+@ 0
+
+find_best_line_move(target_player, acting_player)
+    idx = find_line_completion(target_player, acting_player, 1, 2, 3, 4)
+    if idx != 0
+        @ idx
+    #
+    idx = find_line_completion(target_player, acting_player, 5, 6, 7, 8)
+    if idx != 0
+        @ idx
+    #
+    idx = find_line_completion(target_player, acting_player, 9, 10, 11, 12)
+    if idx != 0
+        @ idx
+    #
+    idx = find_line_completion(target_player, acting_player, 13, 14, 15, 16)
+    if idx != 0
+        @ idx
+    #
+
+    idx = find_line_completion(target_player, acting_player, 1, 5, 9, 13)
+    if idx != 0
+        @ idx
+    #
+    idx = find_line_completion(target_player, acting_player, 2, 6, 10, 14)
+    if idx != 0
+        @ idx
+    #
+    idx = find_line_completion(target_player, acting_player, 3, 7, 11, 15)
+    if idx != 0
+        @ idx
+    #
+    idx = find_line_completion(target_player, acting_player, 4, 8, 12, 16)
+    if idx != 0
+        @ idx
+    #
+
+    idx = find_line_completion(target_player, acting_player, 1, 6, 11, 16)
+    if idx != 0
+        @ idx
+    #
+    idx = find_line_completion(target_player, acting_player, 4, 7, 10, 13)
+    if idx != 0
+        @ idx
+    #
+
+@ 0
+
+find_random_legal_move(player)
+    legal = []
+    for idx 1..16
+        if is_legal_placement(idx, player) == 1
+            push(legal, idx)
+        #
+    #
+    if len(legal) == 0
+        @ 0
+    #
+    pick = rand_int(1, len(legal))
+@ legal[pick]
+
+choose_cpu_move(player)
+    winning_idx = find_best_line_move(player, player)
+    if winning_idx != 0
+        print "CPU sees a winning move at " + winning_idx
+        @ winning_idx
+    #
+
+    opponent = opponent_of(player)
+    block_idx = find_best_line_move(opponent, player)
+    if block_idx != 0
+        print "CPU blocks at " + block_idx
+        @ block_idx
+    #
+
+    random_idx = find_random_legal_move(player)
+    if random_idx != 0
+        print "CPU picks a random legal move at " + random_idx
+    #
+@ random_idx
+
+choose_cpu_unprotect(player, placed_idx)
+    own_unprotected = 1
+    own_protected = 2
+    if player == 2
+        own_unprotected = 3
+        own_protected = 4
+    #
+
+    opponent = opponent_of(player)
+    safe_choices = []
+    all_choices = []
+
+    for idx 1..16
+        if grid[idx] == own_protected and idx != placed_idx
+            push(all_choices, idx)
+
+            grid[idx] = own_unprotected
+            opp_win = find_best_line_move(opponent, opponent)
+            grid[idx] = own_protected
+
+            if opp_win == 0
+                push(safe_choices, idx)
+            #
+        #
+    #
+
+    choice_pool = all_choices
+    if len(safe_choices) > 0
+        choice_pool = safe_choices
+    #
+    if len(choice_pool) == 0
+        @ 0
+    #
+
+    pick = rand_int(1, len(choice_pool))
+@ choice_pool[pick]
+
+list_protected_tiles(own_protected, skip_idx)
+    seen = 0
+    msg = ""
+    for idx 1..16
+        if grid[idx] == own_protected and idx != skip_idx
+            seen += 1
+            if seen > 1
+                msg = msg + ", "
+            #
+            msg = msg + str(idx)
+        #
+    #
+@ msg
+
+~ 5. EXECUTION ENGINE / MAIN GAME LOOP
+in()
+    print "========================================="
+    print "      WELCOME TO CONNECTY PROTECTY       "
+    print "========================================="
+    print "Empty cells show their coordinates."
+    print "Type q to quit at any prompt."
+
+    mode = select_game_mode()
+    if mode == 0
+        print ""
+        print "Game ended early by player request."
+        @
+    #
+    if mode == 1
+        player_two_is_cpu = 1
+        print "Single-player mode selected. Player 2 is controlled by a very simple CPU."
+    #
+    if mode == 2
+        player_two_is_cpu = 0
+        print "Multiplayer mode selected. Player 1 faces Player 2."
+    #
+
+    for match_turn 1..100
+        if game_over == 0
+            print ""
+            print ">>> PLAYER " + current_player + " TURN <<<"
+            draw_board()
+            
+            own_unprotected = 1
+            own_protected = 2
+            opp_unprotected = 3
+            
+            if current_player == 2
+                own_unprotected = 3
+                own_protected = 4
+                opp_unprotected = 1
+            #
+            
+            current_player_turns = player_turns[current_player]
+
+            ~ PHASE 1: PIECE PLACEMENT
+            if game_over == 0
+                move_complete = 0
+                for move_complete == 0 and game_over == 0
+                    is_cpu_turn = current_player == 2 and player_two_is_cpu == 1
+                    target_placement = 0
+
+                    if is_cpu_turn
+                        target_placement = choose_cpu_move(current_player)
+                        if target_placement == 0
+                            print ""
+                            print "CPU has no legal moves. Game over."
+                            @
+                        #
+                    #
+                    if is_cpu_turn == false
+                        placement_prompt = "Enter coordinate (1-16, or q to quit) to place your new protected piece: "
+                        target_placement = get_coordinate(placement_prompt)
+                        
+                        if target_placement == -1
+                            print ""
+                            print "Game ended early by player request."
+                            @
+                        #
+                    #
+                    
+                    move_allowed = 0
+                    if grid[target_placement] == 0
+                        move_allowed = 1
+                    #
+                    if grid[target_placement] == opp_unprotected
+                        move_allowed = 1
+                        print "CRITICAL HIT! You captured an unprotected enemy piece!"
+                    #
+                    
+                    if move_allowed == 1
+                        grid[target_placement] = own_protected
+                        player_turns[current_player] = player_turns[current_player] + 1
+                        move_complete = 1
+                        
+                        ~ PHASE 2: WIN CHECK
+                        if evaluate_victory(current_player) == 1
+                            if current_player_turns >= 3
+                                grid[target_placement] = own_unprotected
+                            #
+                            print ""
+                            print "*****************************************"
+                            print "  VICTORY! PLAYER " + current_player + " CONNECTED 4!  "
+                            print "*****************************************"
+                            draw_board()
+                            game_over = 1
+                        #
+                    #
+                    
+                    ~ PHASE 3: SHIELD RECYCLING
+                    if move_complete == 1 and game_over == 0 and current_player_turns >= 3
+                        print "ATTENTION: All 3 shields are deployed!"
+                        protected_tiles = list_protected_tiles(own_protected, target_placement)
+                        
+                        shield_removed = 0
+                        for shield_removed == 0 and game_over == 0
+                            target_recycle = 0
+                            if is_cpu_turn
+                                target_recycle = choose_cpu_unprotect(current_player, target_placement)
+                                if target_recycle != 0
+                                    print "CPU removes protection from " + target_recycle
+                                #
+                            #
+                            if is_cpu_turn == false
+                                recycle_prompt = "Select your protected piece to unprotect (" + protected_tiles + ", or q to quit): "
+                                target_recycle = get_coordinate(recycle_prompt)
+                                
+                                if target_recycle == -1
+                                    print ""
+                                    print "Game ended early by player request."
+                                    @
+                                #
+                            #
+                            
+                            if grid[target_recycle] == own_protected and target_recycle != target_placement
+                                grid[target_recycle] = own_unprotected
+                                print "Success! Protection removed from position " + target_recycle
+                                shield_removed = 1
+                            #
+                            if shield_removed == 0
+                                if target_recycle == 0
+                                    print "Invalid target. Enter one of these protected tiles: " + protected_tiles
+                                #
+                                if target_recycle != 0
+                                    print "Invalid target. You must pick one of your older shielded pieces: " + protected_tiles
+                                #
+                            #
+                        #
+                    #
+
+                    ~ PHASE 4: ALTERNATE PLAYER
+                    if move_complete == 1 and game_over == 0
+                        next_player = 1
+                        if current_player == 1
+                            next_player = 2
+                        #
+                        current_player = next_player
+                    #
+                    
+                    if move_allowed == 0
+                        if target_placement == 0
+                            print "ILLEGAL MOVE! Enter a coordinate from 1 to 16."
+                        #
+                        if target_placement != 0
+                            print "ILLEGAL MOVE! Slot is occupied by one of your pieces or an enemy shield."
+                        #
+                    #
+                #
+            #
+        #
+    #
+@
