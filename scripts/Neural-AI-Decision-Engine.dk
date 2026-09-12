@@ -1,0 +1,55 @@
+~ ==============================================================================
+~ BOSS AI DECISION ENGINE
+~ A video-game-focused neural primitive demonstration in DK
+~ ==============================================================================
+
+bossEncounter(hp, rage, distance)
+    decision = neural boss_ai
+        [hp, rage, distance]
+        
+        [20, any, any] Panic
+        [any, 90, any] Enrage
+        [any, any, 10] Melee
+        
+        WITH [hp, rage, distance]
+        limit 80
+        
+        case Panic    "Retreating to cover!"
+        case Enrage   "Executing berserk combo!"
+        case Melee    "Unleashing close-range slash!"
+        fallback      "Stalking player position."
+    # 
+@ decision
+
+in()
+    print "========================================="
+    print "      BOSS AI SIMULATION ENGINE          "
+    print "========================================="
+
+    ~ Scenario 1: Low Health Triggers Panic
+    print ""
+    print "[Scenario 1] Boss HP is critically low..."
+    action1 = bossEncounter(15, 10, 50)
+    print "Winner Pattern: " + action1.last
+    print "Confidence:     " + action1.confidence + "%"
+    print "Behavioral Log: " + action1.action
+
+    ~ Scenario 2: High Rage Triggers Enrage
+    print ""
+    print "[Scenario 2] Boss enters a rage state..."
+    action2 = bossEncounter(80, 95, 40)
+    print "Winner Pattern: " + action2.last
+    print "Confidence:     " + action2.confidence + "%"
+    print "Behavioral Log: " + action2.action
+
+    ~ Scenario 3: Player Closes Distance
+    print ""
+    print "[Scenario 3] Player enters melee range..."
+    action3 = bossEncounter(100, 10, 5)
+    print "Winner Pattern: " + action3.last
+    print "Confidence:     " + action3.confidence + "%"
+    print "Behavioral Log: " + action3.action
+
+    print ""
+    print "Simulation complete. Neural primitive resolved successfully."
+@
