@@ -32,18 +32,23 @@ It strips away unnecessary ceremony: no brace-heavy block syntax, no semicolons,
 DK is built around a few core principles:
 
 - Minimal syntax, maximum expressiveness
+
   Multiple valid forms, fewer rigid rules.
 
 - Friendly-first design
+
   Defaults are intuitive where possible, while still exposing the real runtime model.
 
 - Runtime-first architecture
+
   DK compiles to VM bytecode and executes immediately.
 
 - AI as Code
+
   AI constructs (`neural`, `solver`, `brain`) are intended to feel as natural to use as traditional language features like `if` or `switch`.
 
 - Honest features over fake abstractions
+
   If something is narrow, partial, or restricted, it should be documented that way.
 
 ---
