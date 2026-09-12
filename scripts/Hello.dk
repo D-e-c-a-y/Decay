@@ -1,0 +1,23 @@
+~ ==============================================================================
+~ HELLO WORLD EXAMPLE
+~ Basic variable binding and string interpolation in DK
+~ ==============================================================================
+
+in()
+    print "========================================="
+    print "         DECAY (DK) INITIALIZER          "
+    print "========================================="
+    
+    greeting = "Hello"
+    target = "World"
+    
+    message = greeting + ", " + target + "!"
+    print message
+    
+    ~ Direct string interpolation
+    user = "Developer"
+    version = "v1"
+    
+    interpolated_message = "Welcome to Decay {version}, {user}!"
+    print interpolated_message   
+@
