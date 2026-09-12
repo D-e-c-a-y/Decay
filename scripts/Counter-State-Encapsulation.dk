@@ -1,0 +1,30 @@
+~ ==============================================================================
+~ COUNTER FACTORY EXAMPLE
+~ Demonstrating closures and persistent local state in DK
+~ ==============================================================================
+
+makeCounter(start):
+    count = start
+    increment():
+        count += 1
+    @ count
+@ increment
+
+in()
+    print "========================================="
+    print "      CLOSURE STATE ISOLATION DEMO       "
+    print "========================================="
+    
+    counterA = makeCounter(10)
+    counterB = makeCounter(100)
+
+    print "Counter A (starting at 10):"
+    print "  " + counterA()  ~ 11
+    print "  " + counterA()  ~ 12
+
+    print "Counter B (starting at 100):"
+    print "  " + counterB()  ~ 101
+
+    print "Counter A resumes independently:"
+    print "  " + counterA()  ~ 13
+@
