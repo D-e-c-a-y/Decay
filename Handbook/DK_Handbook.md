@@ -1,4 +1,4 @@
-﻿# DK Handbook (Draft v17)
+﻿# DK Handbook
 
 A one-stop technical guide to the DK language.
 
