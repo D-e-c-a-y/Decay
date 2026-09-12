@@ -10,6 +10,7 @@ class NodeHost {
         this.dkpChannels = new Map();
         this.nextDKPListenerId = 1;
         this.readline = null;
+        this.activeReadline = options.activeReadline || null; // Add this line
         this.capabilities = new Map();
         this.installDefaultCapabilities();
         this.installCapabilities(options.capabilities);
@@ -62,7 +63,9 @@ class NodeHost {
 
     getReadLineInterface() {
         if (this.readline) return this.readline;
+        if (this.activeReadline) return this.activeReadline; // Reuse REPL instance
         if (!process.stdin || process.stdin.destroyed) return null;
+        
         const rl = readline.createInterface({
             input: process.stdin,
             output: process.stdout,
