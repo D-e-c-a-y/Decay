@@ -89,7 +89,7 @@ Decay compiles and runs entirely client-side in the browser—no server backend,
 
 Interactive Online Playground: Write and run Decay code directly in your browser with real-time output and syntax minification:
 
-    https://d-e-c-a-y.github.io/Decay/
+    [Decay Online Demo](https://d-e-c-a-y.github.io/Decay/)
 
 Drop-In Embed (dk.min.js): Add the self-contained virtual machine to any website or web application with a single script tag:
 
@@ -165,12 +165,12 @@ print "Diana sits at seat:   " + seating.best.diana
 The output for this will show:
 
 ```text
-    Solved: true
-    Valid layouts found: 1
-    Alice sits at seat:   2
-    Bob sits at seat:     4
-    Charlie sits at seat: 1
-    Diana sits at seat:   3
+Solved: true
+Found 1 valid layout(s)!
+Alice sits at seat:   2
+Bob sits at seat:     4
+Charlie sits at seat: 1
+Diana sits at seat:   3
 ```
 
 ### 2. Pattern Classification (`neural`)
@@ -232,11 +232,11 @@ print reset.action
 
 Output:
 ```text
-    Contested Melee -> BerserkSlam [97%]
-    Triggered ability: BerserkSlam
-
-    Routine Spacing -> TailSwipe [99%]
-    Triggered ability: TailSwipe
+Contested Melee -> BerserkSlam [97%]
+Triggered ability: BerserkSlam
+---
+Routine Spacing -> TailSwipe [99%]
+Triggered ability: TailSwipe
 ```
 
 
@@ -285,15 +285,15 @@ print "Guard:       '" + turn2.text + "'"
 
 Output:
 ```text
-    Player:      'Merchant convoy arriving to sell dried fruits.'
-    State Label:  trade_inquiry
-    Confidence:   94.12%
-    Guard:       'Show your merchant manifest and keep your hands off the gate.'
-
-    Player:      'I lost my papers, but here is a bag of 50 silver coins.'
-    State Label:  bribery_detected
-    Confidence:   98.75%
-    Guard:       'Bribery is an immediate arrest. Step away from the wagon.'
+Player:      'Merchant convoy arriving to sell dried fruits.'
+State Label:  trade_inquiry
+Confidence:   94.12%
+Guard:       'Show your merchant manifest and keep your hands off the gate.'
+---
+Player:      'I lost my papers, but here is a bag of 50 silver coins.'
+State Label:  bribery_detected
+Confidence:   98.75%
+Guard:       'Bribery is an immediate arrest. Step away from the wagon.'
 ```
 
 
