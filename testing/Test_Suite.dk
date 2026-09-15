@@ -1,0 +1,3295 @@
+~~ DK ULTRA TORTURE SUITE v33.4 ~~
+
+failCount = 0
+__str = str
+__suite_start_ms = clock()
+__tracked_sleep_ms = 0
+__tracked_fetch_ms = 0
+__tracked_fetch_count = 0
+
+assert(name, value, expected)
+    if value == expected print "[PASS] " + name #
+    if value != expected
+        failCount += 1
+        print "[FAIL] " + name + " | Want: " + __str(expected) + ", Got: " + __str(value) 
+    #
+    @
+
+trackedSleep(ms)
+    __tracked_sleep_ms += ms
+    sleep(ms)
+@
+
+trackedFetchText(url)
+    started = clock()
+    res = fetch_text(url)
+    took = clock() - started
+    if took < 0 took = 0 #
+    __tracked_fetch_ms += took
+    __tracked_fetch_count += 1
+    @ res
+
+// --- NEW HELPER FUNCTIONS FOR SECTION 25-30 ---
+
+switchTest(val)
+    res = ""
+    switch val
+        case 1
+            res = "One"
+        case "A"
+            res = "Alpha"
+        case [10, 20]
+            res = "Array"
+        default
+            res = "Default"
+    #
+    @ res
+
+nestedControlTest()
+    count = 0
+    for i = 1 i <= 3 i += 1
+        for j = 1 j <= 10 j += 1
+            if j == 3 continue #
+            if j == 5 break #
+            count += 1
+        #
+    #
+    @ count
+
+makeMultiplier(factor):
+    multiply(n):
+        @ n * factor
+    @ multiply
+
+makeCounter():
+    count = 0
+    increment():
+        count = count + 1
+        @ count
+    @ increment
+
+makeAdder(x):
+    add(y):
+        @ x + y
+    @ add
+
+shadowOuter():
+    a = "outer"
+    inner():
+        @ a
+    @ inner
+
+makeLocalClassFactory(seed):
+    ** LocalSeed
+        in(add) val = seed + add @
+        get() @ val
+    **
+    @ LocalSeed
+
+nestedCatchClosureCapture()
+    try
+        throw [^msg:"boom", ^code:77]
+    err e
+        readMsg() @ e[^msg]
+        readCode() @ e[^code]
+        @ [readMsg(), readCode()]
+    #
+    @ ["miss", -1]
+
+loopContinueNestedFactory()
+    total = 0
+    for i=1 i<=5 i+=1
+        if i == 3 continue #
+        mk(base)
+            @ base + i
+        total += mk(10)
+    #
+    @ total
+
+loopBreakNestedFactory()
+    total = 0
+    for i=1 i<=5 i+=1
+        if i == 4 break #
+        mk(base)
+            @ base * i
+        total += mk(2)
+    #
+    @ total
+
+nestedRebaseViewClosure()
+    word = "cat"
+    s0 = word[](0)
+    pick()
+        @ s0[2]
+    @ pick()
+
+class GlobalAliasClass
+    in(v) value = v @
+    get() @ value
+class
+
+** GlobalSigilClass
+    in(v) value = v @
+    get() @ value
+**
+testGuard(codeStr)
+    try
+        ~ If your host environment supports an 'eval' or 'run' function:
+        run(codeStr) 
+        @ false
+    err e
+        @ true ~ Return true because we EXPECTED an error
+    #
+@
+
+passGuard(codeStr)
+    try
+        run(codeStr)
+        @ true
+    err e
+        @ false
+    #
+@
+
+runtimeStabilityAlpha()
+    total = 0
+    make(seed)
+        step(n):
+            @ seed + n
+        @ step
+
+    ** LocalBox
+        in(v) val = v @
+        get() @ val
+    **
+
+    for i 1..4
+        if i == 2 continue #
+        f = make(i)
+        total += f(i)
+    #
+
+    scout = neural
+        [hp, dist]
+        [10, any] Calm
+        WITH [10, 20]
+        limit 50
+        case Calm total
+        fallback 0
+    #
+
+    box = LocalBox(total)
+    @ box.get() + scout.action
+
+runtimeStabilityBeta()
+    total = 0
+
+    ** LocalBox
+        in(v) val = v @
+        get() @ val
+    **
+
+    make(seed)
+        step(n):
+            @ seed + n
+        @ step
+
+    for i 1..4
+        if i == 2 continue #
+        f = make(i)
+        total += f(i)
+    #
+
+    scout = neural
+        [hp, dist]
+        [10, any] Calm
+        WITH [10, 20]
+        limit 50
+        case Calm total
+        fallback 0
+    #
+
+    box = LocalBox(total)
+    @ box.get() + scout.action
+
+asyncLoopClosureStable()
+    total = 0
+    make(seed)
+        grab():
+            @ seed
+        @ grab
+    for i 1..3
+        trackedSleep(1)
+        f = make(i)
+        total += f()
+    #
+    @ total
+
+classNestedFunctionStress()
+    build(seed):
+        ** LocalBox
+            in(v) val = seed + v @
+            get() @ val
+        **
+        makeBox():
+            box = LocalBox(5)
+            @ box.get()
+        @ makeBox()
+    @ build(10)
+
+classParentChainProbe()
+    ** RootChain
+        in() rootVal = 10 @
+    **
+    ** MidChain : RootChain
+        in()
+            {RootChain.in()}
+            midVal = 20
+        @
+    **
+    ** LeafChain : MidChain
+        in()
+            {MidChain.in()}
+            leafVal = 30
+        @
+        total() @ rootVal + midVal + leafVal
+    **
+    @ LeafChain().total()
+
+classOverrideChainProbe()
+    ** RootVoice
+        ping() @ "root"
+    **
+    ** MidVoice : RootVoice
+        ping() @ "mid"
+    **
+    ** LeafVoice : MidVoice
+    **
+    @ [RootVoice().ping(), MidVoice().ping(), LeafVoice().ping()]
+
+safetyLimitTripCheck()
+    prev = __dk_flags[^maxOps]
+    __dk_flags[^maxOps] = 100000
+    caught = false
+    try
+        run("for true x = 1 #")
+    err e
+        caught = true
+    #
+    __dk_flags[^maxOps] = prev
+    @ [caught, true]
+
+minifiedSolverCount()
+    source = "probe = solver [a:[1,2], b:[1,2]] rules [a != b] # done = probe.count"
+    first = mini(source)
+    second = mini(first)
+    tightStable = first == second
+    sourceMentions = first.indexOf("solver") != -1 and first.indexOf("rules") != -1 and first.indexOf("done=probe.count") != -1
+@ [tightStable, sourceMentions]
+
+minifiedNeuralAction()
+    source = "probe = neural [hp, dist] [10, any] Calm WITH [10, 20] limit 50 case Calm 7 fallback 0 # done = probe.action"
+    first = mini(source)
+    second = mini(first)
+    tightStable = first == second
+    sourceMentions = first.indexOf("neural") != -1 and first.indexOf("WITH") != -1 and first.indexOf("done=probe.action") != -1
+@ [tightStable, sourceMentions]
+
+minifiedBrainPass()
+    q = char(34)
+    source = "probe = brain use " + q + "models/test.gguf" + q + " use " + q + "models/vocab.json" + q + " with [l,h,w] entry,exit 32000 [12,8,512] [6] limit 512 memory true prompt " + q + "Analyze local data." + q + " # done = probe.mode"
+    first = mini(source)
+    second = mini(first)
+    tightStable = first == second
+    sourceMentions = first.indexOf("brain") != -1 and first.indexOf(q + "models/test.gguf" + q) != -1 and first.indexOf("prompt") != -1
+@ [tightStable, sourceMentions]
+
+asyncDistinctLoopCapture()
+    vals = []
+    make(seed)
+        delayed():
+            trackedSleep(1)
+            @ seed
+        @ delayed
+    for i 1..4
+        reader = make(i)
+        push(vals, reader())
+    #
+    @ vals
+
+asyncNestedThrowRecovery()
+    caught = false
+    msg = ""
+    clean = 0
+    launch(seed)
+        blast():
+            trackedSleep(1)
+            throw "async-nested-" + seed
+            @ null
+        @ blast
+    try
+        bad = launch("boom")
+        bad()
+    err e
+        caught = true
+        msg = e[^msg]
+    #
+    plus = makeAdder(10)
+    clean = plus(5)
+    @ [caught, has(msg, "async-nested-boom"), clean]
+
+safetyLimitThenCleanSuccess()
+    prev = __dk_flags[^maxOps]
+    __dk_flags[^maxOps] = 100000
+    caught = false
+    try
+        run("for true x = 1 #")
+    err e
+        caught = true
+    #
+    clean = passGuard("value = 21 + 21 if value != 42 unknownCleanState() #")
+    __dk_flags[^maxOps] = prev
+    @ [caught, true, clean]
+
+mixedFeatureParity()
+    source = "base = 5 make(seed) inner = fn(n) @ seed + n + base # @ inner f = make(3) solve = solver [x:[1,2], y:[2,3]] rules [x != y, y == 2] # net = neural [hp, dist] [10, any] Calm WITH [10, 20] limit 50 case Calm 9 fallback 0 # total = f(4) + solve.best.x + net.action #"
+    first = mini(source)
+    second = mini(first)
+    @ [first == second, first.indexOf("solver [") != -1 and first.indexOf("neural [") != -1]
+
+failedMinifiedRunThenSuccess()
+    bad = testGuard("probe=solver[a:[1,2],b:[1,2] rules[a!=b]#")
+    clean = passGuard("token = 7 if token != 7 badAfterMinified() #")
+    @ [bad, clean]
+
+parallelCleanupProbe()
+    bad = testGuard("results = parallel 1 2 3 #")
+    clean = passGuard("done = 7 if done != 7 parallelCleanupFail() #")
+    @ [bad, clean]
+
+captureRunError(codeStr)
+    caught = false
+    errType = null
+    errCode = null
+    errMsg = ""
+    errLine = null
+    try
+        run(codeStr)
+    err e
+        caught = true
+        errType = e[^type]
+        errCode = e[^code]
+        errMsg = e[^msg]
+        errLine = e[^line]
+    #
+    @ [caught, errType, errCode, has(errMsg, "at Line:"), errLine != null]
+
+aiacFailureThenCleanSuccess()
+    bad = captureRunError("probe = solver [x:[1,2]] rules [missingSolverRule()] #")
+    clean = passGuard("afterAiac = 9 if afterAiac != 9 aiacDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainLocalFailureThenCleanSuccess()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_meta.gguf" + q + " limit 32 prompt " + q + "threat packet alert" + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainLocal = 17 if afterBrainLocal != 17 brainLocalDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainCloudFailureThenCleanSuccess()
+    q = char(34)
+    source = "probe = brain use " + q + "https://api.mock.local/v1" + q + " config [provider:" + q + "anthropic" + q + ", model:" + q + "test-model" + q + "] limit 1024 sample [temp:0.7, top_p:0.9] identity " + q + "You are a cloud test bot." + q + " prompt " + q + "Analyze this data." + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainCloud = 23 if afterBrainCloud != 23 brainCloudDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainLocalSuccessStable()
+    first = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        limit 12
+        prompt "threat packet alert"
+    #
+    second = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        limit 12
+        prompt "threat packet alert"
+    #
+    @ [
+        first.text,
+        first.confidence,
+        first.tokens,
+        first.mode,
+        first.label,
+        first.status,
+        first.reason,
+        second.text,
+        second.confidence,
+        second.tokens
+    ]
+
+brainLocalTopologySuccess()
+    probe = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        with [l,h,w]
+        entry,exit 32000
+        [12,8,512]
+        [6]
+        limit 12
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.label, probe.mode]
+
+brainLocalCustomTopologyLegendSuccess()
+    probe = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        with [w,h,l]
+        entry,exit 32000
+        [512,8,12]
+        [512,8,6]
+        limit 12
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.label]
+
+brainLocalStopProbe()
+    probe = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        limit 12
+        stop [" inspect"]
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.tokens, probe.label]
+
+brainScopeIsolation()
+    outer = 41
+    caught = false
+    try
+        probe = brain
+            use weights "models/test_brain_model.json"
+            use vocab "models/test_brain_vocab.json"
+            limit 12
+            prompt "status outer " + outer
+        #
+    err e
+        caught = false
+    #
+    @ [probe.label, outer]
+
+brainFailureParity()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_brain_model.json" + q + " use vocab " + q + "models/test_brain_vocab.json" + q + " limit 12 prompt " + q + "threat packet alert" + q + " #"
+    src = run(source)
+    miniOut = run(mini(source))
+    @ [
+        src.text == miniOut.text,
+        src.confidence == miniOut.confidence,
+        src.tokens == miniOut.tokens
+    ]
+
+brainTopologyMismatchThenCleanSuccess()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_brain_model.json" + q + " use vocab " + q + "models/test_brain_vocab.json" + q + " with [l,h,w] entry,exit 32000 [12,8,512] [7] limit 12 prompt " + q + "threat packet alert" + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainTopology = 29 if afterBrainTopology != 29 brainTopologyDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainGGUFTopologyValidationThenFailure()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_meta.gguf" + q + " with [l,h,w] entry,exit 32000 [12,8,512] limit 32 prompt " + q + "threat packet alert" + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainGGUF = 31 if afterBrainGGUF != 31 brainGGUFDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainGGUFTopologyMismatchThenCleanSuccess()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_meta.gguf" + q + " with [l,h,w] entry,exit 32000 [11,8,512] limit 32 prompt " + q + "threat packet alert" + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainGGUFMismatch = 37 if afterBrainGGUFMismatch != 37 brainGGUFMismatchDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainGGUFBadTensorThenCleanSuccess()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_bad_tensor.gguf" + q + " limit 32 prompt " + q + "threat packet alert" + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainGGUFBad = 41 if afterBrainGGUFBad != 41 brainGGUFBadDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainMemoryTranscriptProbe()
+    first = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        limit 12
+        memory true
+        prompt "threat packet alert"
+    #
+    second = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        limit 12
+        memory true
+        prompt "continue"
+    #
+    third = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        limit 12
+        prompt "continue"
+    #
+    @ [first.label, second.label, second.text, third.label, third.text, second.memory]
+
+brainStreamCallbackProbe()
+    seen = []
+    onToken(chunk)
+        push(seen, chunk.token + "|" + chunk.index + "|" + chunk.done)
+        @
+    probe = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        limit 12
+        stream true
+        callback onToken
+        prompt "threat packet alert"
+    #
+    @ [
+        len(seen),
+        seen[1],
+        seen[len(seen)],
+        probe.chunks[1].token,
+        probe.chunks[len(probe.chunks)].done,
+        probe.stream
+    ]
+
+brainUtilityMethodsProbe()
+    probe = brain
+        use weights "models/test_brain_model.json"
+        use vocab "models/test_brain_vocab.json"
+        limit 12
+        prompt "threat packet alert"
+    #
+    ids = probe.tokenize("threat packet alert")
+    vec = probe.vectorize("threat packet threat")
+    decoded = probe.decode([1, 2, 3])
+    @ [ids[1], ids[2], ids[3], len(vec), vec[1], vec[2], vec[3], decoded]
+
+brainLMJsonSuccess()
+    probe = brain
+        use weights "models/test_brain_lm_model.json"
+        with [l,h,w]
+        entry,exit 14
+        [2,2,8]
+        limit 12
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.tokens, probe.reason, probe.label]
+
+brainLMJsonIdentitySample()
+    probe = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 12
+        sample [temp:0]
+        identity "security"
+        prompt "continue"
+    #
+    @ [probe.text, probe.tokens, probe.reason]
+
+brainLMSampleTopKProbe()
+    loose = brain
+        use weights "models/test_brain_sampling_model.json"
+        limit 1
+        sample [temp:1, seed:1000]
+        prompt ""
+    #
+    tight = brain
+        use weights "models/test_brain_sampling_model.json"
+        limit 1
+        sample [temp:1, top_k:1, seed:1000]
+        prompt ""
+    #
+    @ [loose.text, tight.text]
+
+brainLMSamplePenaltyProbe()
+    plain = brain
+        use weights "models/test_brain_sampling_model.json"
+        limit 2
+        sample [temp:0]
+        prompt ""
+    #
+    penalized = brain
+        use weights "models/test_brain_sampling_model.json"
+        limit 2
+        sample [temp:0, penalty:2]
+        prompt ""
+    #
+    @ [plain.text, penalized.text]
+
+brainLMUnsupportedSampleThenCleanSuccess()
+    bad = captureRunError("probe = brain use weights " + char(34) + "models/test_brain_lm_model.json" + char(34) + " limit 4 sample [bogus:1] prompt " + char(34) + "threat packet alert" + char(34) + " #")
+    clean = passGuard("afterBrainSample = 43 if afterBrainSample != 43 brainSampleDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainLMLimitProbe()
+    probe = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 3
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.tokens]
+
+brainLMStopProbe()
+    probe = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 12
+        stop [" packet"]
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.tokens]
+
+brainLMMemoryProbe()
+    first = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 12
+        memory true
+        prompt "threat packet alert"
+    #
+    second = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 12
+        memory true
+        prompt "continue"
+    #
+    third = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 12
+        prompt "continue"
+    #
+    @ [first.text, second.text, third.text, second.memory]
+
+brainLMStreamCallbackProbe()
+    seen = []
+    onChunk(chunk)
+        push(seen, chunk.token + "|" + chunk.index + "|" + chunk.done)
+        @
+    probe = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 12
+        stream true
+        callback onChunk
+        prompt "threat packet alert"
+    #
+    @ [len(seen), seen[1], seen[len(seen)], probe.chunks[1].token, probe.chunks[len(probe.chunks)].done]
+
+brainLMUtilityMethodsProbe()
+    probe = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 12
+        prompt "threat packet alert"
+    #
+    ids = probe.tokenize("threat packet alert")
+    vec = probe.vectorize("threat packet alert")
+    decoded = probe.decode([1, 2, 3, 4, 5, 6])
+    @ [ids[1], ids[2], ids[3], len(vec), vec[1] > 0, vec[2] == 0, decoded]
+
+brainLMGGUFParity()
+    jsonProbe = brain
+        use weights "models/test_brain_lm_model.json"
+        limit 12
+        prompt "threat packet alert"
+    #
+    ggufProbe = brain
+        use weights "models/test_brain_lm.gguf"
+        with [l,h,w]
+        entry,exit 14
+        [2,2,8]
+        limit 12
+        prompt "threat packet alert"
+    #
+    @ [jsonProbe.text == ggufProbe.text, jsonProbe.tokens == ggufProbe.tokens, ggufProbe.reason]
+
+brainLMLabelledJsonResources()
+    probe = brain
+        use weights "models/test_brain_lm.weights"
+        use vocab "models/test_brain_vocab.tokens"
+        with [l,h,w]
+        entry,exit 14
+        [2,2,8]
+        limit 12
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.tokens]
+
+brainLMLabelledGGUFResources()
+    probe = brain
+        use weights "models/test_brain_lm.weightsbin"
+        with [l,h,w]
+        entry,exit 14
+        [2,2,8]
+        limit 12
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.tokens]
+
+brainLMEquivalentTopologyContract()
+    probe = brain
+        use weights "models/test_brain_lm_model.json"
+        with [l,h,w]
+        entry,exit 14
+        [1,2,8]
+        [1]
+        limit 12
+        prompt "threat packet alert"
+    #
+    @ [probe.text, probe.tokens]
+
+brainLMStagedTopologyRejectedThenCleanSuccess()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_brain_lm_model.json" + q + " with [l,h,w] entry,exit 14 [1,2,8] [1,2,4] limit 4 prompt " + q + "threat packet alert" + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainStage = 47 if afterBrainStage != 47 brainStageDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainLMAsymmetricEntryExitRejectedThenCleanSuccess()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_brain_lm_model.json" + q + " with [l,h,w] entry 14 [2,2,8] exit 10 limit 4 prompt " + q + "threat packet alert" + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainEntryExit = 53 if afterBrainEntryExit != 53 brainEntryExitDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainLMInvalidLabelThenCleanSuccess()
+    q = char(34)
+    source = "probe = brain use vocab " + q + "models/test_brain_lm.gguf" + q + " limit 4 prompt " + q + "threat packet alert" + q + " #"
+    bad = captureRunError(source)
+    clean = passGuard("afterBrainLabel = 59 if afterBrainLabel != 59 brainLabelDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+brainLMMinifiedEquivalentParity()
+    q = char(34)
+    source = "probe = brain use weights " + q + "models/test_brain_lm_model.json" + q + " with [l,h,w] entry,exit 14 [1,2,8] [1] limit 12 prompt " + q + "threat packet alert" + q + " #"
+    src = run(source)
+    miniOut = run(mini(source))
+    @ [src.text == miniOut.text, src.tokens == miniOut.tokens, src.reason == miniOut.reason]
+
+dkpPackProbe()
+    source = "done = 7"
+    packet = DKP_pack(^!!, source)
+    @ [packet, packet.indexOf(" = ") == -1, packet.indexOf(char(10)) == -1]
+
+dkpUnpackProbe()
+    pulse = DKP_unpack("?? [^msg:" + char(34) + "ack" + char(34) + "]")
+    @ [pulse[^packet], pulse[^sigil], pulse[^source]]
+
+dkpSendReceiveProbe()
+    seen = []
+    listener = DKP_listen(^local, fn(pulse)
+        push(seen, pulse[^sigil] + "|" + pulse[^source] + "|" + pulse[^channel])
+        @
+    #)
+    packet = DKP_pack(^!!, "done = 7")
+    sent = DKP_send(^local, packet)
+    removed = DKP_unlisten(listener)
+    @ [sent[^ok], sent[^code], sent[^channel], len(seen), seen[1], removed]
+
+dkpUnlistenProbe()
+    seen = []
+    listener = DKP_listen(^solo, fn(pulse)
+        push(seen, pulse[^packet])
+        @
+    #)
+    first = DKP_send(^solo, DKP_pack(^!!, "done = 1"))
+    removed = DKP_unlisten(listener)
+    removedAgain = DKP_unlisten(listener)
+    bad = captureRunError("DKP_send(^solo, DKP_pack(^!!, " + char(34) + "done = 2" + char(34) + "))")
+    @ [first[^ok], len(seen), removed, removedAgain, bad[2], bad[3]]
+
+dkpNoImplicitExecutionProbe()
+    executed = false
+    sourceSeen = ""
+    listener = DKP_listen(^hold, fn(pulse)
+        sourceSeen = pulse[^source]
+        @
+    #)
+    packet = DKP_pack(^!!, "@ 77")
+    sent = DKP_send(^hold, packet)
+    removed = DKP_unlisten(listener)
+    explicitOk = true
+    try
+        run(sourceSeen)
+    err e
+        explicitOk = false
+    #
+    @ [sent[^ok], executed, sourceSeen, explicitOk, removed]
+
+dkpSelfExecutionProbe()
+    seen = ""
+    executed = false
+    listener = DKP_listen(^selfrun, fn(pulse)
+        seen = pulse[^source]
+        run(seen)
+        executed = true
+        @
+    #)
+    packet = DKP_pack(^!!, "value = 40 + 2 @ value")
+    sent = DKP_send(^selfrun, packet)
+    removed = DKP_unlisten(listener)
+    @ [sent[^ok], sent[^code], seen, executed, removed]
+
+dkpInvalidSigilThenCleanSuccess()
+    bad = captureRunError("DKP_pack(" + char(34) + "@@" + char(34) + ", " + char(34) + "done = 1" + char(34) + ")")
+    clean = passGuard("afterDKPSigil = 61 if afterDKPSigil != 61 dkpSigilDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+dkpEmptyContentThenCleanSuccess()
+    bad = captureRunError("DKP_pack(^!!, " + char(34) + "   " + char(34) + ")")
+    clean = passGuard("afterDKPEmpty = 67 if afterDKPEmpty != 67 dkpEmptyDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+dkpInvalidPacketThenCleanSuccess()
+    bad = captureRunError("DKP_unpack(" + char(34) + "!!  print(1)" + char(34) + ")")
+    clean = passGuard("afterDKPPacket = 71 if afterDKPPacket != 71 dkpPacketDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+dkpNewlinePacketThenCleanSuccess()
+    bad = captureRunError("DKP_unpack(" + char(34) + "!! print(1)" + char(34) + " + char(10))")
+    clean = passGuard("afterDKPNewline = 73 if afterDKPNewline != 73 dkpNewlineDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+dkpInvalidHandlerThenCleanSuccess()
+    bad = captureRunError("DKP_listen(^bad, 7)")
+    clean = passGuard("afterDKPHandler = 79 if afterDKPHandler != 79 dkpHandlerDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+dkpUnknownChannelThenCleanSuccess()
+    bad = captureRunError("DKP_send(^ghost, DKP_pack(^!!, " + char(34) + "done = 1" + char(34) + "))")
+    clean = passGuard("afterDKPChannel = 83 if afterDKPChannel != 83 dkpChannelDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+solverDeterministicTie()
+    first = []
+    second = []
+    for i 1..5
+        probe = solver
+            [
+                x: [1, 2],
+                y: [1, 2]
+            ]
+            rules [
+                x + y == 3
+            ]
+            optimize [
+                [max: x + y]
+            ]
+        #
+        push(first, probe.best.x)
+        push(second, probe.best.y)
+    #
+    @ [first, second]
+
+solverLimitProbe()
+    probe = solver
+        [
+            a: [1, 2, 3],
+            b: [1, 2, 3],
+            c: [1, 2, 3]
+        ]
+        mode "all"
+        limit 5
+    #
+    @ [probe.complete, probe.reason, probe.count, probe.solutions[1].a, probe.best.a]
+
+solverFailureThenCleanSuccess()
+    bad = captureRunError("probe = solver [x: 5] rules [x == 5] #")
+    clean = passGuard("afterSolverFail = 12 if afterSolverFail != 12 solverDirty() #")
+    @ [bad[1], bad[2], bad[3], clean]
+
+solverTimeoutThenCleanSuccess()
+    probe = solver
+        [
+            a: [1, 2, 3, 4],
+            b: [1, 2, 3, 4],
+            c: [1, 2, 3, 4],
+            d: [1, 2, 3, 4]
+        ]
+        rules [
+            a != b,
+            b != c,
+            c != d,
+            a != d
+        ]
+        mode "all"
+        timeout 0
+    #
+    clean = passGuard("afterSolverTimeout = 33 if afterSolverTimeout != 33 solverTimeoutDirty() #")
+    @ [probe.complete, probe.reason, probe.count, probe.ok, clean]
+
+solverSourceMinifiedParity()
+    source = "probe = solver [x:[1,2,3], y:[1,2,3]] rules [x != y, x + y == 4] optimize [[max:x],[min:y]] mode " + char(34) + "all" + char(34) + " #"
+    src = run(source)
+    miniOut = run(mini(source))
+    @ [
+        src.reason == miniOut.reason,
+        src.count == miniOut.count,
+        src.best.x == miniOut.best.x,
+        src.best.y == miniOut.best.y,
+        src.solutions[1].x == miniOut.solutions[1].x
+    ]
+
+buildSolverPressureSource(varCount)
+    q = char(34)
+    nl = char(10)
+    source = "probe = solver" + nl + "    [" + nl
+    for i 1..varCount
+        if i > 1 source += "," + nl #
+        source += "        v" + i + ": [1, 2, 3, 4]"
+    #
+    source += nl + "    ]" + nl + "    rules [" + nl
+    firstRule = true
+    for i 1..varCount
+        for j = i + 1 j <= varCount j += 1
+            if firstRule != true source += "," + nl #
+            source += "        v" + i + " != v" + j
+            firstRule = false
+        #
+    #
+    source += nl + "    ]" + nl
+    source += "    mode " + q + "all" + q + nl
+    source += "    limit 2000" + nl
+    source += "    timeout 250" + nl
+    source += "#"
+    @ source
+
+solverStackPressureRegression(varCount)
+    source = buildSolverPressureSource(varCount)
+    srcOk = passGuard(source)
+    miniOk = passGuard(mini(source))
+    @ [
+        srcOk,
+        miniOk,
+        srcOk == miniOk
+    ]
+
+solverInFunctionStable(seed)
+    makeProbe(extra)
+        @ solver
+            [
+                x: [1, 2, 3],
+                y: [1, 2, 3]
+            ]
+            rules [
+                x + y == seed + extra
+            ]
+            optimize [
+                [max: x]
+            ]
+        #
+    probe = makeProbe(1)
+    @ [probe.ok, probe.best.x, probe.best.y]
+
+class SolverHarness
+    in(seed)
+        self.seed = seed
+    @
+
+    solve(extra)
+        probe = solver
+            [
+                x: [1, 2, 3],
+                y: [1, 2, 3]
+            ]
+            rules [
+                x + y == self.seed + extra
+            ]
+            optimize [
+                [max: y]
+            ]
+        #
+        @ [probe.ok, probe.best.x, probe.best.y]
+**
+
+// --- EXISTING FUNCTIONS ---
+
+assignGuard() @
+breakTest()
+    for i=1 i<=10 i+=1 if i == 5 @ i # #
+    @ 0
+add(a, b) @ a + b
+localTest() loc = 999 @ loc
+readGlob() @ glob
+shadow(xShadow) xShadow = 50 @ xShadow
+fact(n)
+    if n <= 1 @ 1 #
+    @ n * fact(n-1)
+modArr(a) push(a, 99) @ 
+subFunc() tempVar = 50 @ tempVar
+callerFunc()
+    tempVar = 10
+    trash = subFunc()
+    @ tempVar 
+oneLine(x) if x>0 @ 1 # @ 0
+spaced ( x ) @ x    
+gcd(a, b)
+    if b == 0 @ a #
+    mod = a - (b * floor(a/b))
+    @ {gcd(b, mod)}
+sumArr(arr)
+    s = 0
+    l = len(arr)
+    for i=1 i<=l i+=1 s += arr[i] #
+    @ s
+fibIter(n)
+    a = 0
+    b = 1
+    for i=1 i<n i+=1
+        temp = a + b
+        a = b
+        b = temp
+    #
+    @ b
+thrower(mode)
+    if mode == 1 throw "Simple Error" #
+    if mode == 2 throw [^code: 500, ^msg: "Complex Error"] #
+    @
+getPoint() @ [10, 20]
+fib(n)
+    if n < 2 return n #
+    return fib(n-1) + fib(n-2)
+unreachable()
+    res = 100
+    @ res res = 200
+
+// --- NEW CLASS ADDITION ---
+
+CLASS Hydra
+    in(hp, dist, heads)
+        self.hp = hp
+        self.dist = dist
+        self.heads = heads
+    @ ~ Ends the constructor without returning
+
+    think()
+        res = neural brain
+            [hp, dist, heads]
+            
+            [20, any, any] Panic
+            [any, 10, any] Melee
+            [80, 80, 5]    Barrage
+
+            WITH [self.hp, self.dist, self.heads]
+            limit 80
+
+            case Panic    "Regenerating"
+            case Melee    self.bite()
+            case Barrage  "Fireball Storm"
+            fallback      "Stalking"
+        #
+    @ res
+
+    bite()
+    @ "Crunch!"
+**
+
+CLASS BrainTest
+    in(x, y)
+        self.x = x
+        self.y = y
+    @
+
+    ~ Tests Expression Mode and Local Persistence
+    getSpeed(bonus)
+        ~ Attach to 'self' so we can read the properties in the assert
+        self.engine = neural math_brain
+            [x, y]
+            [10, any] Slow
+            [any, 90] Fast
+            WITH [self.x, self.y]
+            limit 50
+            case Slow 1
+            case Fast 10
+            fallback 0
+        #
+        @ bonus + self.engine.action
+**
+
+coexistFunc()
+@ 99
+
+testThrowPrimitive(val)
+    caught = false
+    errType = null
+    hasLine = false
+    try
+        throw val
+    err e
+        caught = true
+        errType = e[^type]
+        hasLine = has(e[^msg], "at Line:")
+    #
+@ [caught, errType, hasLine]
+
+nestedThrowCatch()
+    res = []
+    try
+        try
+            throw 101
+        err e1
+            push(res, e1[^msg])
+            throw 202
+        #
+    err e2
+        push(res, e2[^msg])
+    #
+@ res
+
+downContinueSum()
+    total = 0
+    for i 10..1 i -= 2
+        if i == 6 continue #
+        total += i
+    #
+@ total
+
+nestedRangeJump()
+    count = 0
+    for x 1..3
+        for y 1..5
+            if y == 2 continue #
+            if y == 4 break #
+            count += 1
+        #
+    #
+@ count
+
+trackEvalA(log)
+    push(log, "A")
+@ 10
+
+trackEvalB(log)
+    push(log, "B")
+@ 20
+
+trackSideEffect(log)
+    push(log, "Inside")
+@ "Returned"
+
+~ ENTRY POINT
+in()
+
+print "=== 1. CORE EXPRESSIONS & PRIMITIVE VALUES ==="
+    assert("Add", 1 + 1, 2)
+    assert("Sub", 10 - 4, 6)
+    assert("Mul", 3 * 4, 12)
+    assert("Div", 12 / 4, 3)
+    assert("Order 1", 1 + 2 * 3, 7)
+    assert("Order 2", (1 + 2) * 3, 9)
+    assert("Order 3", 10 - 5 - 2, 3)
+    assert("Float Add", 0.1 + 0.2 * 10, 2.1)
+    assert("Negative", -5 + 2, -3)
+
+    assert("True", true, true)
+    assert("False", false, false)
+    assert("And True", true and true, true)
+    assert("And False", true and false, false)
+    assert("Eq Num", 5 == 5, true)
+    assert("Neq Num", 5 != 6, true)
+    assert("Eq Str", "a" == "a", true)
+    assert("Gt", 10 > 5, true)
+    assert("Lt", 5 < 10, true)
+    assert("Gte", 5 >= 5, true)
+    assert("Lte", 4 <= 5, true)
+    assert("Logic Torture", [] == true, false)
+
+    s = "Hello"
+    assert("Str Lit", s, "Hello")
+    assert("Str Len", len(s), 5)
+    assert("Str Concat", s + " World", "Hello World")
+    assert("Str Empty", len(""), 0)
+    assert("Str Num Concat", "Age: " + 10, "Age: 10")
+    s2 = "A"
+    s2 += "B"
+    assert("Str Append", s2, "AB")
+    assert("Str Eq", "test" == "test", true)
+    assert("Str Neq", "test" != "best", true)
+    assert("Str Type", type(""), "str")
+    assert("Str OOB Torture", "abc"[5], null)
+
+    assert("Type String", type("hello"), "str")
+    assert("Type Number", type(123), "number")
+    assert("Type Array", type([1,2]), "arr")
+    assert("Type Null", type(null), "object")
+
+    assert("Builtin Max", max(10, 20), 20)
+    assert("Builtin Min", min(10, 20), 10)
+    assert("Builtin Abs", abs(-99), 99)
+    assert("Builtin Sqrt", sqrt(16), 4)
+    assert("Builtin Pow", pow(2, 8), 256)
+    assert("Math Type Torture", 10 + null, 10)
+
+print "\n=== 2. VARIABLES, ASSIGNMENT & NAME BEHAVIOUR ==="
+    x = 10
+    assert("Var Read", x, 10)
+    x = 20
+    assert("Var Reassign", x, 20)
+    x += 5
+    assert("Var PlusEquals", x, 25)
+    y = x + 5
+    assert("Var Math", y, 30)
+    assert("Assign Guard Ret", assignGuard(), null)
+    nullVar = null
+    assert("Null Value", nullVar, null)
+    try v = missingVar err e print "[PASS] Undefined Var Caught" #
+
+    assert("Reference Stability (x)", x == x, true)
+    assert("Intern Stability", "self" == "self", true)
+
+print "\n=== 3. CONTROL FLOW ==="
+    res = 0
+    if true res = 1 #
+    assert("If True", res, 1)
+    if false res = 2 #
+    assert("If False", res, 1)
+
+    c = 1
+    sum = 0
+    for c <= 5
+        sum += c
+        c += 1
+    #
+    assert("While Loop", sum, 15)
+
+    sum = 0
+    for i=1 i<=5 i+=1
+        sum += i
+    #
+    assert("For Loop", sum, 15)
+
+    outer = 0
+    for i=1 i<=3 i+=1
+        for j=1 j<=3 j+=1
+            outer += 1
+        #
+    #
+    assert("Nested Loop", outer, 9)
+    assert("Loop Break Return", breakTest(), 5)
+
+    k = 0
+    for i=1 i<1 i+=1 k+=1 #
+    assert("Zero Iteration", k, 0)
+    assert("Return Flow Stability", unreachable(), 100)
+
+    downSum = 0
+    for i 5..1
+        downSum += i
+    #
+    assert("Auto-Decrement Range (5..1)", downSum, 15)
+
+    stepSum = 0
+    for i 1..10 i += 2
+        stepSum += i
+    #
+    assert("Custom Step Range (i+=2)", stepSum, 25)
+
+    zCount = 0
+    for i 10..10 zCount += 1 #
+    assert("Single Point Range", zCount, 1)
+
+    wsum = 0
+    i = 1
+    for i <= 5
+        wsum += i
+        i += 1
+    #
+    assert("For (While) Sum 1..5", wsum, 15)
+
+    v = "A"
+    count = 0
+    for v != "D" and v != "Z" and count < 5
+        count += 1
+        if count == 3 v = "D" #
+    #
+    assert("For (While) Multi-Cond", count, 3)
+
+    j = 0
+    for true
+        j += 1
+        if j == 4 break #
+    #
+    assert("For (While) Break", j, 4)
+
+    k = 0
+    csum = 0
+    for k < 5
+        k += 1
+        if k == 3 continue #
+        csum += 1
+    #
+    assert("For (While) Continue", csum, 4)
+
+    token = "ID"
+    guard = 0
+    for token != "EOF" and guard < 10
+        guard += 1
+        if guard == 2 token = "ELSE" #
+        if guard == 3 token = "EOF" #
+    #
+    assert("For (While) Sentinel", guard, 3)
+
+print "\n=== 4. FUNCTIONS, CLOSURES & DECLARATION MODES ==="
+    assert("Func Call", add(10, 5), 15)
+    assert("Local Var", localTest(), 999)
+
+    try
+        glob = 100
+        assert("Read Global", readGlob(), 100)
+    err e
+        print "[EXPECTED FAIL] Global Access | " + e[^msg]
+    #
+
+    res = shadow(99)
+    assert("Shadow Ret", res, 50)
+
+    try
+        assert("Shadow Global", xShadow, 10)
+    err e
+        print "[EXPECTED FAIL] Shadow Check | " + e[^msg]
+    #
+
+    assert("Recursion Fact", fact(5), 120)
+
+    myA = []
+    modArr(myA)
+    assert("Pass By Ref", myA[1], 99)
+
+    assert("Scope Barrier", callerFunc(), 10)
+    try x=10; x() err e print "[PASS] Callee Type Guard" #
+
+    triple = makeMultiplier(3)
+    assert("Closure Capture (triple)", triple(10), 30)
+
+    counter = makeCounter()
+    assert("Persistent State 1", counter(), 1)
+    assert("Persistent State 2", counter(), 2)
+    assert("Persistent State 3", counter(), 3)
+
+    add5 = makeAdder(5)
+    add10 = makeAdder(10)
+    assert("Adder Isolation (5)", add5(2), 7)
+    assert("Adder Isolation (10)", add10(2), 12)
+
+    a = "global"
+    getInner = shadowOuter()
+    assert("Upvalue Shadowing", getInner(), "outer")
+
+    grandparent(ga):
+        gb = 10
+        parent(pc):
+            pd = 20
+            child(ce):
+                @ ga + gb + pc + pd + ce
+            @ child
+        @ parent
+
+    p_func = grandparent(5)
+    c_func = p_func(30)
+    assert("Triple Nesting Upvalue Chain", c_func(1), 66)
+
+    ga = GlobalAliasClass(123)
+    gs = GlobalSigilClass(77)
+    assert("Global Class (class)", ga.get(), 123)
+    assert("Global Class (**)", gs.get(), 77)
+
+    localCtor = makeLocalClassFactory(10)
+    localInst = localCtor(5)
+    assert("Local Nested Class Factory", localInst.get(), 15)
+
+    fnAlias = fn(x) @ x + 1 #
+    assert("fn Literal Alias", fnAlias(9), 10)
+
+    function funcAlias(x) @ x * 3
+    assert("function Keyword Alias", funcAlias(4), 12)
+
+    implicitAlias(x): @ x - 2
+    assert("implicit name(): alias", implicitAlias(9), 7)
+
+    rec(n): if n <= 0 @ 0 # @ rec(n-1)
+    assert("Rec Depth", rec(50), 0)
+
+    localOnly(n): @ n + 1
+    assert("Local Func Call", localOnly(1), 2)
+    assert("Global Func Call", add(2, 3), 5)
+    try unknownFunc() err e print "[PASS] Missing Global Function" #
+
+print "\n=== 4B. FUNCTION EXECUTION & SIDE-EFFECT VERIFICATION ==="
+    sideEffectTracker = 0
+    
+    sideEffectFn()
+        sideEffectTracker += 1
+        @ 42
+
+    assert("Bare function reference does not execute side effects", sideEffectTracker, 0)
+    
+    ~ Test executing function call and checking return value
+    assert("Function call returns correct value", sideEffectFn(), 42)
+    assert("Function call triggered side effect", sideEffectTracker, 1)
+
+    ~ Test dual lookup override behavior
+    testOverrideFn()
+        @ 77
+
+    assert("Before rebind, bare name behavior or function check", type(testOverrideFn), "object")
+    
+    testOverrideFn = 100
+    assert("Variable assignment overrides function namespace for bare identifier", testOverrideFn, 100)
+
+print "\n=== 5. ARRAYS, MAPS, INDEXING, SLICING & REBASING ==="
+    arr = [10, 20, 30]
+    assert("Arr Len", len(arr), 3)
+    assert("Arr Index 1", arr[1], 10)
+    assert("Arr Index 3", arr[3], 30)
+    assert("Arr Index Fail", arr[0], null)
+    assert("Arr Index OOB", arr[4], null)
+    arr[1] = 99
+    assert("Arr Write", arr[1], 99)
+    arr[4] = 40
+    assert("Arr Expand", len(arr), 4)
+    assert("Arr Read Exp", arr[4], 40)
+    pLen = push(arr, 50)
+    assert("Push Returns Len", pLen, 5)
+    assert("Push Effect", arr[5], 50)
+    empty = []
+    assert("Empty Len", len(empty), 0)
+    assert("Array Type", type([]), "arr")
+    newlineEmpty =
+    []
+    assert("Array Newline Empty Len", len(newlineEmpty), 0)
+    newlineNested =
+    [[]]
+    assert("Array Newline Nested Len", len(newlineNested), 1)
+    assert("Array Newline Nested Child Len", len(newlineNested[1]), 0)
+    try 123[1] = 1 err e print "[PASS] Non-Array Write Guard" #
+
+    user = [name:"DK", role:"Admin"]
+    assert("Map Read", user["name"], "DK")
+    assert("Dot Read", user.role, "Admin")
+    user.role = "User"
+    assert("Dot Write", user["role"], "User")
+    assert("Pure Map Print Starts With Key", startsWith(__str(user), "[^name"), true)
+
+    grid = ["A", "B"]
+    assert("Base 1", grid[1], "A")
+    grid[](0)
+    assert("Rebase 0", grid[0], "A")
+
+    mix = [100]
+    mix[^1] = "Label"
+    assert("Index 1", mix[1], 100)
+    assert("Hybrid Numeric Key Appends", mix[2], "Label")
+    assert("Sigil ^1 Len", len(mix[^1]), 1)
+    assert("Sigil ^1 Value", mix[^1][1], "Label")
+    assert("Map Key Torture", user.missing, null)
+
+    x, y = getPoint()
+    assert("Destructure X", x, 10)
+    assert("Destructure Y", y, 20)
+
+    a, b = [99]
+    assert("Destructure Partial A", a, 99)
+    assert("Destructure Partial B", b, null)
+    try a,b = 100 err e print "[PASS] Unpack Guard" #
+
+    sum = 0
+    for i 1..5
+        sum += i
+    #
+    assert("Range Loop Sum", sum, 15)
+
+    list = ["A", "B", "C", "D", "E"]
+    sub = list[2:4]
+    assert("Slice Len", sub.len(), 3)
+    assert("Slice First", sub[1], "B")
+    assert("Slice Last", sub[3], "D")
+    assert("Slice Neg Torture", list[0:-1].len(), 0)
+
+    assert("String Slice Operator", "hello"[1:2], "he")
+    assert("Slice Function (Rest)", slice("hello", 1), "hello")
+    assert("Slice Function (Range)", slice("hello", 1, 2), "he")
+
+    a = [1, 2]
+    a[^name] = "ok"
+    assert("Hybrid Array Slot Append", a[3], "ok")
+    assert("Hybrid Array Map Read Len", len(a.name), 1)
+    assert("Hybrid Array Map Read Value", a.name[1], "ok")
+    assert("Hybrid Array Len", len(a), 3)
+    assert("Hybrid Print Has Key", startsWith(__str(a), "[1, 2, ^name: ok"), true)
+
+    h = [/]
+    h[^name] = "Tom"
+    assert("Hybrid Literal Empty Len", len(h), 1)
+    assert("Hybrid Literal Key Read Len", len(h.name), 1)
+    assert("Hybrid Literal Key Read Value", h.name[1], "Tom")
+    assert("Hybrid Literal Print Has Key", startsWith(__str(h), "[^name"), true)
+
+    crew = [1, 2]
+    crew[^name] = "Tom"
+    crew[^role] = "Pilot"
+    crew[^name] = "Tam"
+    assert("Hybrid Ordered Slot 3", crew[3], "Tom")
+    assert("Hybrid Ordered Slot 4", crew[4], "Pilot")
+    assert("Hybrid Ordered Slot 5", crew[5], "Tam")
+    assert("Hybrid Repeated Key Len", len(crew.name), 2)
+    assert("Hybrid Repeated Key First", crew.name[1], "Tom")
+    assert("Hybrid Repeated Key Second", crew.name[2], "Tam")
+    crewKeys = keys(crew)
+    assert("Hybrid Keys Ordered Len", len(crewKeys), 3)
+    assert("Hybrid Keys Ordered 1", crewKeys[1], "name")
+    assert("Hybrid Keys Ordered 2", crewKeys[2], "role")
+    assert("Hybrid Keys Ordered 3", crewKeys[3], "name")
+    crewVals = values(crew)
+    assert("Hybrid Values Ordered 1", crewVals[1], "Tom")
+    assert("Hybrid Values Ordered 2", crewVals[2], "Pilot")
+    assert("Hybrid Values Ordered 3", crewVals[3], "Tam")
+    remName = remove(crew, "name")
+    assert("Hybrid Remove Return", remName, "Tom")
+    assert("Hybrid Remove Len Shift", len(crew), 4)
+    assert("Hybrid Remove Shifted Slot", crew[3], "Pilot")
+    assert("Hybrid Remove Shifted Tail", crew[4], "Tam")
+    crewKeys2 = keys(crew)
+    assert("Hybrid Remove Keys 1", crewKeys2[1], "role")
+    assert("Hybrid Remove Keys 2", crewKeys2[2], "name")
+    assert("Hybrid Remove Remaining Name Len", len(crew.name), 1)
+    assert("Hybrid Remove Remaining Name Value", crew.name[1], "Tam")
+
+    a = [10, 20, 30]
+    pLen = push(a, 40)
+    assert("Push Return", pLen, 4)
+    assert("Push Value", a[4], 40)
+
+    pVal = pop(a)
+    assert("Pop Return", pVal, 40)
+    assert("Pop Len", len(a), 3)
+
+    uLen = unshift(a, 5)
+    assert("Unshift Return", uLen, 4)
+    assert("Unshift Value", a[1], 5)
+
+    sVal = shift(a)
+    assert("Shift Return", sVal, 5)
+    assert("Shift Len", len(a), 3)
+
+    assert("Contains Found", contains(a, 20), true)
+    assert("Contains Missing", contains(a, 99), false)
+
+    user = [name: "DK", role: "Admin", level: 5]
+    k = keys(user)
+    assert("Keys Length", len(k), 3)
+    assert("Keys Content", contains(k, "role"), true)
+
+    v = values(user)
+    assert("Values Length", len(v), 3)
+    assert("Values Content", contains(v, "Admin"), true)
+
+    assert("Map Has (True)", has(user, "role"), true)
+    assert("Map Has (False)", has(user, "xp"), false)
+
+    rem = remove(user, "level")
+    assert("Remove Return", rem, 5)
+    assert("Remove Effect", has(user, "level"), false)
+
+    extra = [active: true, region: "EU"]
+    merge(user, extra)
+    assert("Merge Effect 1", user.active, true)
+    assert("Merge Effect 2", user.region, "EU")
+    assert("Merge Preservation", user.name, "DK")
+
+    profile = [name: "Tom", age: 30]
+    profile += [city: "London", active: true]
+    assert("Map += Preserve Name", profile.name, "Tom")
+    assert("Map += Preserve Age", profile.age, 30)
+    assert("Map += Add City", profile.city, "London")
+    assert("Map += Add Active", profile.active, true)
+
+    profile += [name: "Tim"]
+    assert("Map += Collision Promotes Len", len(profile.name), 2)
+    assert("Map += Collision First", profile.name[1], "Tom")
+    assert("Map += Collision Second", profile.name[2], "Tim")
+
+    profile += [name: "Tam"]
+    assert("Map += Collision Append Len", len(profile.name), 3)
+    assert("Map += Collision Third", profile.name[3], "Tam")
+    assert("Map += Print Starts With Key", startsWith(__str(profile), "[^name"), true)
+
+    queue = [1, 2]
+    queue += [3, 4]
+    assert("Array += Append 1", queue[3], 3)
+    assert("Array += Append 2", queue[4], 4)
+    assert("Array += Append Len", len(queue), 4)
+
+    jObj = [id: 123, list: [1, 2]]
+    jStr = json_str(jObj)
+    jBack = json_parse(jStr)
+    assert("JSON Roundtrip ID", jBack.id, 123)
+    assert("JSON Roundtrip List", jBack.list[2], 2)
+
+    myList = ["apple", "banana", "cherry", "banana"]
+    assert("Array indexOf Found", myList.indexOf("banana"), 2)
+    assert("Array indexOf Offset", myList.indexOf("banana", 3), 4)
+    assert("Array indexOf Missing", myList.indexOf("grape"), -1)
+    myList[](3)
+    assert("Array indexOf Rebased Found", myList.indexOf("banana"), 4)
+    assert("Array indexOf Rebased Offset", myList.indexOf("banana", 5), 6)
+    assert("Array indexOf Rebased Missing", myList.indexOf("grape"), -1)
+
+    delList = [10, 20, 30, 40, 50]
+    removed = delList.splice(2, 3)
+    assert("Splice Target Mutated", len(delList), 2)
+    assert("Splice Target Result", delList[2], 50)
+    assert("Splice Returned Array", removed[1], 20)
+    assert("Splice Returned Len", len(removed), 3)
+
+    insList = ["A", "D"]
+    insList.splice(2, 0, "B", "C")
+    assert("Splice Insertion Size", len(insList), 4)
+    assert("Splice Insertion Val", insList[3], "C")
+
+    fList = [1, 2, 3, 4, 5]
+    fList.fill(99, 2, 4)
+    assert("Fill Start Range", fList[2], 99)
+    assert("Fill End Range", fList[3], 99)
+    assert("Fill Boundary Kept", fList[4], 4)
+
+    nums = [1, 2, 3, 4, 5]
+    squares = nums.map(fn(x) @ x * x #)
+    assert("Map Element 1", squares[1], 1)
+    assert("Map Element 3", squares[3], 9)
+    assert("Map Element 5", squares[5], 25)
+
+    evens = nums.filter(fn(x) @ x % 2 == 0 #)
+    assert("Filter Length", len(evens), 2)
+    assert("Filter Element 1", evens[1], 2)
+    assert("Filter Element 2", evens[2], 4)
+
+    sum = 0
+    nums.forEach(fn(x)
+        sum += x
+        @
+    #)
+    assert("forEach Side Effect Sum", sum, 15)
+
+    idxSum = 0
+    ["A", "B"].forEach(fn(val, idx)
+        idxSum += idx
+        @
+    #)
+    assert("forEach Index Passing", idxSum, 3)
+
+    idxSum2 = 0
+    ["X", "Y", "Z"].forEach(fn(val, idx)
+        idxSum2 += idx
+        @
+    #)
+    assert("Minifier Boundary (Assign + [)", idxSum2, 6)
+
+    assert("Math PI", PI > 3.14 and PI < 3.15, true)
+    assert("Math E", E > 2.71 and E < 2.72, true)
+    assert("Math Infinity", INFINITY > 99999999999, true)
+
+    vals = [2, 4, 6, 8]
+    assert("Every (True)", vals.every(fn(x) @ x % 2 == 0 #), true)
+    assert("Every (False)", vals.every(fn(x) @ x > 5 #), false)
+    assert("Some (True)", vals.some(fn(x) @ x == 6 #), true)
+    assert("Some (False)", vals.some(fn(x) @ x == 99 #), false)
+
+    nums = [1, 2, 3, 4]
+    sum = nums.reduce(fn(acc, curr) @ acc + curr #)
+    assert("Reduce (No Init)", sum, 10)
+    sumInit = nums.reduce(fn(acc, curr) @ acc + curr #, 100)
+    assert("Reduce (With Init)", sumInit, 110)
+
+    rbArr = ["A", "B", "C"]
+    assert("Rebase Array Default[1]", rbArr[1], "A")
+    rbArr[](0)
+    assert("Rebase Array Override[0]", rbArr[0], "A")
+    assert("Rebase Array Override[2]", rbArr[2], "C")
+
+    rbArr2 = ["X", "Y", "Z"]
+    assert("Rebase Scoped Read Array", rbArr2[1](0), "Y")
+    rbArr2[2](0) = "Q"
+    assert("Rebase Scoped Write Array", rbArr2[2](0), "Q")
+    assert("Rebase Scoped No Mutation", rbArr2[1], "X")
+
+    rbStr = "cat"
+    assert("Rebase String Default[1]", rbStr[1], "c")
+    s0 = rbStr[](0)
+    assert("Rebase String View[0]", s0[0], "c")
+    assert("Rebase String View[2]", s0[2], "t")
+
+    assert("Rebase Scoped Read String", rbStr[1](0), "a")
+    assert("Rebase Scoped Read String No Mutation", rbStr[1], "c")
+
+print "\n=== 6. STRINGS, INTERPOLATION & TEXT PIPELINES ==="
+    name = "World"
+    num = 42
+    msg = "Hello {name}, Answer: {num + 8}"
+    assert("Interpolation", msg, "Hello World, Answer: 50")
+    assert("Interpolation Stability", 1+1, 2)
+
+    txt = "Hello DK World"
+    assert("Has Literal /Hello/", has(txt, /Hello/), true)
+    assert("Has String '^Hello'", has(txt, "^Hello"), true)
+
+    m1 = match("abc 123", /[0-9]+/)
+    m2 = match("abc 123", "[0-9]+")
+    assert("Match Literal", m1[1], "123")
+    assert("Match String",  m2[1], "123")
+
+    squashLit = sub("a b c", /\s/, "")
+    squashStr = sub("a b c", "\\s", "")
+    assert("Squash Literal (/\s/)", squashLit, "abc")
+    assert("Squash String ('\\s')", squashStr, "abc")
+
+    assert("Flag Literal /dk/i", has(txt, /dk/i), true)
+    assert("Flag String 'dk'", has(txt, "dk"), false)
+
+    prefix = "Hel"
+    pattern = "^" + prefix
+    assert("Dynamic String Pattern", has(txt, pattern), true)
+
+    str = "Hello"
+    assert("UFCS Global Call", str.len(), 5)
+
+    user = [name: "DK", age: 10]
+    assert("UFCS Property", user.name, "DK")
+
+    user.greet = fn(u) @ "Hi " + u.name
+    assert("UFCS Method", user.greet(), "Hi DK")
+
+    val = user.missingMethod()
+    assert("Missing Method Returns Null", val, null)
+    user.len = 99
+    assert("UFCS Shadow Torture", user.len, 99)
+
+    name = ^world
+    assert("Sigil.upper()", name.upper(), "WORLD")
+    assert("String.upper()", "hello".upper(), "HELLO")
+    assert("Static upper()", upper(^hello), "HELLO")
+
+    data = "apple-banana-cherry"
+    parts = data.split(^-)
+    assert("Sigil Split Len", len(parts), 3)
+    assert("Sigil Split Val", parts[1], "apple")
+
+    res = "v1v2".split(^v).join(2)
+    assert("Numeric Coercion Chain", res, "2122")
+
+    w = "A B".split(" ")
+    assert("Quoted Delimiter", len(w), 2)
+
+    raw = "  x.y.z  "
+    pipeline = raw.trim().split(^.).join(^-)
+    assert("Method Chaining", pipeline, "x-y-z")
+
+    m = [^path: "usr/local/bin"]
+    segments = m[^path].split(^/)
+    assert("Regex Safety Split", segments[1], "usr")
+
+    replaced = "hello world".replace(^world, ^dk)
+    assert("Replace Native", replaced, "hello dk")
+
+    assert("Char from Ord", char(102), "f")
+    assert("Ord from Char", ord("f"), 102)
+    mAt = match_at("hello world", "world", 6)
+    assert("Match At Offset", mAt[0], "world")
+
+    assert("indexOf Found", "hello world".indexOf("world"), 7)
+    assert("indexOf Missing", "hello".indexOf("x"), -1)
+    assert("indexOf Start Offset", "abc abc".indexOf("a", 2), 5)
+    rebasedText = "hello world"[](3)
+    assert("indexOf Rebased String Found", rebasedText.indexOf("world"), 9)
+    assert("indexOf Rebased String Offset", rebasedText.indexOf("o", 7), 7)
+    assert("indexOf Rebased String Missing", rebasedText.indexOf("x"), -1)
+    assert("startsWith True", "DK Language".startsWith("DK"), true)
+    assert("startsWith False", "DK Language".startsWith("Lang"), false)
+    assert("endsWith True", "script.dk".endsWith(".dk"), true)
+    assert("endsWith False", "script.dk".endsWith(".js"), false)
+
+    assert("repeat String", "-".repeat(5), "-----")
+    assert("repeat Zero", "x".repeat(0), "")
+    assert("padStart Default", "5".padStart(3), "  5")
+    assert("padStart Custom", "5".padStart(3, "0"), "005")
+    assert("padEnd Default", "5".padEnd(3), "5  ")
+    assert("padEnd Custom", "5".padEnd(3, "-"), "5--")
+    assert("String Tool Chain", "dk".upper().padStart(5, "_").repeat(2), "___DK___DK")
+
+print "\n=== 7. PARSER, LEXER, COMMENTS & MINIFIER INTEGRITY ==="
+    assert("One Liner True", oneLine(5), 1)
+    assert("One Liner False", oneLine(-5), 0)
+
+    cVal = 10
+    ~~ Block Comment ~~
+    cVal += 10
+    assert("Comments", cVal, 20)
+
+    assert("Weird Spacing", spaced(5), 5)
+    try x = 1 + err e print "[PASS] Syntax Recovery" #
+
+    commaStr = "a, b, c"
+    assert("Comma String Protection", commaStr, "a, b, c")
+    print "[PASS] Space-Squeezed Print Test"
+
+    loopCheck = 0
+    for i=1 i<=3 i+=1
+        loopCheck += i
+    #
+    assert("Auto-Swapped Loop Integrity", loopCheck, 6)
+
+    sigilTest = fn(x) if x == 1 @ 10 # @ 20 #
+    assert("Sigil Boundary Check", sigilTest(1), 10)
+
+    tmark = 41
+    ~ This line should be ignored tmark += 1
+    tmark += 1
+    assert("Tilde Line Comment (~)", tmark, 42)
+
+    bmark = 5
+    ~~ Any text here should be ignored: bmark = 999 ~~
+    assert("Tilde Block Comment (~~ ~~)", bmark, 5)
+
+    source = "fn main() @ 10"
+    res = match(source, /^fn/)
+    assert("Match Found", res != null, true)
+    assert("Match Full Text", res.full, "fn")
+    assert("Match Length", res.len, 2)
+    assert("Match Index", res.index, 1)
+    assert("Capture Group 0", res[1], "fn")
+
+    code_f = ord(source, 1)
+    code_paren = ord(source, 8)
+    assert("Ord 'f'", code_f, 102)
+    assert("Ord '('", code_paren, 40)
+    assert("Ord Out of Bounds", ord(source, 100), null)
+
+    pos = 1
+    m = match(slice(source, pos), /^fn/)
+    if m != null
+        print "Found: " + m.full
+        pos += m.len
+    #
+    if ord(source, pos) == 32
+        print "Skipping space at " + str(pos)
+        pos += 1
+    #
+    print "New Position: " + str(pos)
+    assert("Cursor Advanced", pos, 4)
+
+print "\n=== 8. MODULES, IMPORTS, CLASSES & OBJECT BEHAVIOUR ==="
+    use modules/std/math
+    assert("Import Math PI", math.pi, 3.14159)
+    assert("Import Math Call", math.add(10,5), 15)
+
+    use m = modules/std/math
+    assert("Import Alias (m=)", m.pi, 3.14159)
+    try use modules/std/void err e print "[PASS] Module Load Guard" #
+
+    use modules/Animal
+    myPet = Animal()
+    sound = myPet.speak()
+    print "Animal Instance: " + str(myPet)
+    assert("Class Instance Type", type(myPet), "object")
+    assert("Class Method Call", sound, "Woof!")
+
+    use modules/testScript
+    assert("Script Var x", testScript.x, 10)
+    assert("Script Var y", testScript.y, 20)
+    assert("Script Var sum", testScript.sum, 30)
+
+    use modCapture = modules/suite_module_capture_helper
+    modProbe = modCapture.build(7)
+    assert("Module Exported Closure Capture", modProbe(5), 42)
+
+    ** SwallowTest
+        a() return 1 @
+        b() return 10 @
+    **
+    t = SwallowTest()
+    assert("Parser Swallow Check", t.a() + t.b(), 11)
+
+    ** Grandparent
+        id() return "GP" @
+    **
+    ** Parent : Grandparent
+    **
+    ** Child : Parent
+    **
+    c = Child()
+    assert("Deep Inheritance", c.id(), "GP")
+
+    ** Memory
+        in() val = 0 @
+        set(n) val = n @
+        get() return val @
+    **
+    mObj = Memory()
+    mObj.set(99)
+    assert("Instance State", mObj.get(), 99)
+    assert("Instance Stability (m.get)", mObj.get() == mObj.get(), true)
+
+    ** Base
+        in() baseVal = 500 @
+    **
+    ** Sub : Base
+        in()
+            {Base.in()}
+            subVal = 100
+        @
+        check() return baseVal + subVal @
+    **
+    s = Sub()
+    assert("Explicit Parent Call", s.check(), 600)
+    assert("Parent Constructor Chain Probe", classParentChainProbe(), 60)
+
+    overrideProbe = classOverrideChainProbe()
+    assert("Method Override Root", overrideProbe[1], "root")
+    assert("Method Override Mid", overrideProbe[2], "mid")
+    assert("Method Override Leaf", overrideProbe[3], "mid")
+
+    ** LocalClass
+        check() @ "I am local"
+    **
+    lc = LocalClass()
+    assert("Local Class Creation", lc.check(), "I am local")
+
+    ** AliasCounter
+        in(start)
+            this.tally = start
+            note = "ready"
+        @
+        bump()
+            tally += 1
+            @ this.tally
+        @
+        read()
+            @ tally
+        @
+        readNote()
+            @ this.note
+        @
+        nestedRead()
+            inner() @ this.tally
+            @ inner()
+        @
+    **
+    counter = AliasCounter(5)
+    assert("Class this alias write", counter.tally, 5)
+    assert("Class optional field write", counter.readNote(), "ready")
+    assert("Class optional compound assign", counter.bump(), 6)
+    assert("Class optional field read", counter.read(), 6)
+    assert("Class this alias nested read", counter.nestedRead(), 6)
+
+    try s.subVal() err e print "[PASS] Method Lookup Guard" #
+
+print "\n=== 9. ERRORS, EXCEPTIONS & DIAGNOSTICS ==="
+    try
+        thrower(1)
+        print "[FAIL] String Throw (Uncaught)"
+    err e
+        assert("Catch String", has(e[^msg], "Simple Error"), true)
+    #
+
+    try
+        thrower(2)
+        print "[FAIL] Map Throw (Uncaught)"
+    err m
+        assert("Catch Map Code", m[^code], 500)
+    #
+
+    try
+        val = missingVar
+        print "[FAIL] System Error (Uncaught)"
+    err sys
+        assert("Catch Sys Error", sys[^type], "SystemError")
+    #
+
+    assert("Stack Sync Test", 1+1, 2)
+
+    trackedLine = false
+    try
+        missing_var_12345()
+    err e
+        trackedLine = has(e[^msg], "at Line:")
+    #
+    assert("Error Includes Line Number", trackedLine, true)
+
+    lexErr = captureRunError("\"unterminated")
+    assert("Lexer Error Caught", lexErr[1], true)
+    assert("Lexer Error Type", lexErr[2], "LexerError")
+    assert("Lexer Error Code", lexErr[3], "LEXER_ERROR")
+    assert("Lexer Error Msg Line", lexErr[4], true)
+    assert("Lexer Error Field Line", lexErr[5], true)
+
+    parseErr = captureRunError("case 10")
+    assert("Parser Error Caught", parseErr[1], true)
+    assert("Parser Error Type", parseErr[2], "ParserError")
+    assert("Parser Error Code", parseErr[3], "PARSER_ERROR")
+    assert("Parser Error Msg Line", parseErr[4], true)
+    assert("Parser Error Field Line", parseErr[5], true)
+
+    compileErr = captureRunError("break")
+    assert("Compiler Error Caught", compileErr[1], true)
+    assert("Compiler Error Type", compileErr[2], "CompilerError")
+    assert("Compiler Error Code", compileErr[3], "COMPILER_ERROR")
+    assert("Compiler Error Msg Line", compileErr[4], true)
+    assert("Compiler Error Field Line", compileErr[5], true)
+
+    runtimeErr = captureRunError("print missingVar")
+    assert("Runtime Error Caught", runtimeErr[1], true)
+    assert("Runtime Error Type", runtimeErr[2], "SystemError")
+    assert("Runtime Error Code", runtimeErr[3], "SYSTEM_ERROR")
+    assert("Runtime Error Msg Line", runtimeErr[4], true)
+    assert("Runtime Error Field Line", runtimeErr[5], true)
+
+print "\n=== 10. UTILITY / STANDARD LIBRARY / ALGORITHMS ==="
+    assert("GCD(48, 18)", gcd(48, 18), 6)
+    assert("Array Sum", sumArr([1, 2, 3, 4, 5]), 15)
+    assert("Fib Iter(10)", fibIter(10), 55)
+    try fact(1000) err e print "[PASS] Stack Depth Handled" #
+
+    print "Calculaing Fib(12)..."
+    result = fib(12)
+    print "Result: " + result
+    assert("Fib(12) Correctness", result, 144)
+
+    arrA = [1, 2]
+    arrB = [1, 2]
+    arrC = arrA
+    assert("Ref Equality (True)", arrA == arrC, true)
+    assert("Ref Equality (False)", arrA == arrB, false)
+
+    data = "Item: Box"
+    matchData = match(data, /Item: (\w+)/)
+    assert("Regex Full Match", matchData[1], "Item: Box")
+    assert("Regex Group Capture", matchData[2], "Box")
+
+    tracker = []
+    false && push(tracker, 1)
+    true || push(tracker, 2)
+    assert("Short-Circuit Check (Lazy Eval)", len(tracker), 0)
+    assert("Reflection Null Torture", type(null.property), "object")
+
+    assert("Clamp Low", clamp(-50, 0, 100), 0)
+    assert("Clamp High", clamp(150, 0, 100), 100)
+    assert("Lerp 50%", lerp(0, 10, 0.5), 5)
+
+    list = [1, 2, 2, 3]
+    uniq = unique(list)
+    assert("Unique Len", len(uniq), 3)
+
+    rev = [1, 2, 3]
+    reverse(rev)
+    assert("Reverse", rev[1], 3)
+
+    orig = [meta: [x: 10]]
+    copy = clone(orig)
+    copy.meta.x = 999
+    assert("Deep Copy Safety", orig.meta.x, 10)
+    assert("Deep Copy Value", copy.meta.x, 999)
+
+    enc = b64_enc("DK")
+    dec = b64_dec(enc)
+    assert("Base64 Roundtrip", dec, "DK")
+
+    nums = [5, 1, 3]
+    sort(nums)
+    assert("Sort Numeric", nums[1], 1)
+    assert("Sort Order", nums[3], 5)
+
+    d = date()
+    assert("Date Function Exists", type(d), "str")
+
+print "\n=== 11. BUFFERS, VECTORS & LINEAR ALGEBRA ==="
+    mem = buffer(4, "f32")
+    mem[1] = 3.14
+    mem[2] = 42
+    mem[3] = 99.9
+    assert("Buffer Allocation Len", len(mem), 4)
+    assert("Buffer Read 1-Base", mem[2], 42)
+    isFloat32 = mem[1] > 3.14 and mem[1] < 3.15
+    assert("Buffer Float32 Precision", isFloat32, true)
+    assert("Buffer OOB Read", mem[99], null)
+
+    memBuf = buffer(100, "f32")
+    memBuf.fill(3.14)
+    isPi = memBuf[50] > 3.13 and memBuf[50] < 3.15
+    assert("Buffer Fill Support", isPi, true)
+
+    rbBuf = buffer(4, "f32")
+    rbBuf[1] = 11
+    rbBuf[2] = 22
+    assert("Rebase Buffer Default[1]", rbBuf[1], 11)
+    assert("Rebase Buffer Default[2]", rbBuf[2], 22)
+
+    rbBuf[](0)
+    assert("Rebase Buffer Override[0]", rbBuf[0], 11)
+    assert("Rebase Buffer Override[1]", rbBuf[1], 22)
+
+    rbBuf2 = buffer(4, "f32")
+    rbBuf2[2](0) = 99
+    assert("Rebase Scoped Write Buffer", rbBuf2[2](0), 99)
+    assert("Rebase Scoped Read Buffer No Mutation", rbBuf2[1], 0)
+
+    assert("Rebase Len String Count", len(rbStr), 3)
+    assert("Rebase Len String View Count", len(s0), 3)
+    assert("Rebase Len Buffer Count", len(rbBuf), 4)
+
+    pos|[10.5, 20.1, 30.2]
+    assert("Vector Type Check", type(pos), "object")
+    assert("Vector Index Read", pos[1], 10.5)
+    pos[1] = 99
+    assert("Vector Index Write", pos[1], 99)
+
+    temp = 100
+    humidity = 50
+    neural sensor_logic
+        WITH [temp, humidity]
+        limit 80
+        case HighHeat [100, any]
+        case Humid    [any, 90]
+    #
+    res = sensor_logic()#
+    assert("Neural Vector Winner", res[^last], "HighHeat")
+    assert("Neural Vector Confidence", res[^confidence], 100)
+
+    v1 = |[3, 4]
+    v2 = |[1, 2]
+    assert("Vector Add", vec_add(v1, v2)[1], 4)
+    assert("Vector Sub", vec_sub(v1, v2)[2], 2)
+    assert("Vector Mag", vec_mag(v1), 5)
+
+    norm = v1.vec_scale(2).vec_norm()
+    assert("Vector Chain", norm[1] > 0.59 and norm[1] < 0.61, true)
+
+    input_state = |[10.0, 5.0]
+    weights = [
+        |[ 0.5, -0.2,  0.1],
+        |[-0.1,  0.8, -0.5]
+    ]
+    logits = input_state.mat_mul(weights)
+    assert("Matrix Mul [1]", logits[1], 4.5)
+    assert("Matrix Mul [2]", logits[2], 2.0)
+    assert("Matrix Mul [3]", logits[3], -1.5)
+
+    probs = logits.vec_softmax()
+    p1 = round(probs[1] * 100)
+    p2 = round(probs[2] * 100)
+    p3 = round(probs[3] * 100)
+
+    assert("Softmax P1 (~92%)", p1, 92)
+    assert("Softmax P2 (~8%)", p2, 8)
+    assert("Softmax P3 (~0%)", p3, 0)
+    assert("Softmax Sum Check", p1 + p2 + p3, 100)
+
+print "\n=== 12. ASYNC, HOST BRIDGE & ENVIRONMENT IO ==="
+    start_time = clock()
+    trackedSleep(200)
+    end_time = clock()
+    elapsed = end_time - start_time
+    assert("Async Sleep Yields", elapsed > 150, true)
+
+    api_data = trackedFetchText("https://jsonplaceholder.typicode.com/todos/1")
+    assert("Async Fetch Type", type(api_data), "str")
+    has_content = has(api_data, "userId") or has(api_data, "Error")
+    assert("Async Fetch Resolution", has_content, true)
+
+    assert("Math Sin(0)", sin(0), 0)
+    assert("Math Cos(0)", cos(0), 1)
+    assert("Math Tan(0)", tan(0), 0)
+    assert("Math Exp(0)", exp(0), 1)
+    assert("Math Log(1)", log(1), 0)
+    assert("Math Log10(100)", log10(100), 2)
+    assert("Math Log2(8)", log2(8), 3)
+
+    assert("Math Trunc Positive", trunc(3.99), 3)
+    assert("Math Trunc Negative", trunc(-3.99), -3)
+
+    rVal = rand()
+    assert("Rand Bounds", rVal >= 0 and rVal < 1, true)
+
+    rInt1 = rand_int(5, 5)
+    assert("Rand Int Exact", rInt1, 5)
+
+    rInt2 = rand_int(10, 20)
+    assert("Rand Int Range", rInt2 >= 10 and rInt2 <= 20, true)
+
+    unixTime = time()
+    assert("Unix Time Generation", unixTime > 1700000000, true)
+
+    assert("UI Input Registered", input != null, true)
+    assert("UI Alert Registered", alert != null, true)
+
+print "\n=== 13. NEURAL / AIAC / BRAIN FEATURES ==="
+    hp = 20
+    dist = 50
+    rage = 10
+
+    brain = neural boss_ai
+        [hp, dist, rage]
+        [20, any, any] Panic
+        [80, 10, 90]   Enrage
+        WITH [hp, dist, rage]
+        limit 75
+        case Panic    "Retreating"
+        case Enrage   "Attacking"
+        fallback     "Idle"
+    #
+
+    assert("Neural Winner", brain.last, "Panic")
+    assert("Neural Confidence", brain.confidence >= 75, true)
+    assert("Neural Action", brain.action, "Retreating")
+
+    mood = brain
+    assert("Alias Property Access", mood.last, "Panic")
+
+    boss = Hydra(15, 90, 1)
+    decision = boss.think()
+    assert("Winner: Panic (Masked)", decision.last, "Panic")
+    assert("Action: String Return", decision.action, "Regenerating")
+
+    boss.hp = 80
+    boss.dist = 5
+    decision = boss.think()
+    assert("Winner: Melee (Proximity)", decision.last, "Melee")
+    assert("Action: Method Result", decision.action, "Crunch!")
+
+    boss.hp = 50
+    boss.dist = 50
+    boss.heads = 2
+    decision = boss.think()
+    assert("Winner: Fallback", decision.last, "fallback")
+
+    a = BrainTest(10, 0)
+    b = BrainTest(0, 90)
+
+    resA = a.getSpeed(0)
+    assert("Instance A Winner", a.engine.last, "Slow")
+
+    resB = b.getSpeed(0)
+    assert("Instance B Winner", b.engine.last, "Fast")
+
+    mathResult = a.getSpeed(100)
+    assert("Neural Math Nesting", mathResult, 101)
+
+    c = BrainTest(10, 90)
+    c.getSpeed(0)
+    assert("Tie-Breaker (First Definition)", c.engine.last, "Slow")
+    assert("Confidence Stability", c.engine.confidence, 100)
+
+    localBrainOk = brainLocalSuccessStable()
+    assert("Local Brain Text", localBrainOk[1], "Security risk detected inspect packet now")
+    assert("Local Brain Confidence", localBrainOk[2], 99.91)
+    assert("Local Brain Tokens", localBrainOk[3], 6)
+    assert("Local Brain Mode", localBrainOk[4], "local")
+    assert("Local Brain Label", localBrainOk[5], "security")
+    assert("Local Brain Status", localBrainOk[6], "ok")
+    assert("Local Brain Reason", localBrainOk[7], "matched")
+    assert("Local Brain Stable Text", localBrainOk[8], localBrainOk[1])
+    assert("Local Brain Stable Confidence", localBrainOk[9], localBrainOk[2])
+    assert("Local Brain Stable Tokens", localBrainOk[10], localBrainOk[3])
+
+    localBrainTopologyOk = brainLocalTopologySuccess()
+    assert("Local Brain Topology Text", localBrainTopologyOk[1], "Security risk detected inspect packet now")
+    assert("Local Brain Topology Label", localBrainTopologyOk[2], "security")
+    assert("Local Brain Topology Mode", localBrainTopologyOk[3], "local")
+
+    localBrainCustomTopology = brainLocalCustomTopologyLegendSuccess()
+    assert("Local Brain Custom Topology Text", localBrainCustomTopology[1], "Security risk detected inspect packet now")
+    assert("Local Brain Custom Topology Label", localBrainCustomTopology[2], "security")
+
+    localBrainStop = brainLocalStopProbe()
+    assert("Local Brain Stop Text", localBrainStop[1], "Security risk detected")
+    assert("Local Brain Stop Tokens", localBrainStop[2], 3)
+    assert("Local Brain Stop Label", localBrainStop[3], "security")
+
+    cloudBrain = brainCloudFailureThenCleanSuccess()
+    assert("Cloud Brain DK Visible", cloudBrain[1], true)
+    assert("Cloud Brain Type", cloudBrain[2], "BrainError")
+    assert("Cloud Brain Code", cloudBrain[3], "BRAIN_CLOUD_UNAVAILABLE")
+    assert("Cloud Brain Cleanup", cloudBrain[4], true)
+
+    localBrain = brainLocalFailureThenCleanSuccess()
+    assert("Local Brain DK Visible", localBrain[1], true)
+    assert("Local Brain Type", localBrain[2], "BrainError")
+    assert("Local Brain Code", localBrain[3], "BRAIN_GGUF_EXECUTION_UNAVAILABLE")
+    assert("Local Brain Cleanup", localBrain[4], true)
+
+    brainScope = brainScopeIsolation()
+    assert("Brain Scope Label", brainScope[1], "status")
+    assert("Brain Scope Outer Stable", brainScope[2], 41)
+
+    brainParity = brainFailureParity()
+    assert("Brain Source/Mini Success", brainParity[1], true)
+    assert("Brain Source/Mini Type Match", brainParity[2], true)
+    assert("Brain Source/Mini Code Match", brainParity[3], true)
+
+    brainMemory = brainMemoryTranscriptProbe()
+    assert("Brain Memory First Label", brainMemory[1], "security")
+    assert("Brain Memory Carry Label", brainMemory[2], "security")
+    assert("Brain Memory Carry Text", brainMemory[3], "Security risk detected inspect packet now")
+    assert("Brain Memory Off Label", brainMemory[4], "status")
+    assert("Brain Memory Off Text", brainMemory[5], "System status nominal continue monitoring")
+    assert("Brain Memory Flag", brainMemory[6], true)
+
+    brainStream = brainStreamCallbackProbe()
+    assert("Brain Stream Callback Count", brainStream[1], 6)
+    assert("Brain Stream Callback First", brainStream[2], "Security|1|false")
+    assert("Brain Stream Callback Last", brainStream[3], "now|6|true")
+    assert("Brain Stream Chunk First", brainStream[4], "Security")
+    assert("Brain Stream Chunk Last Done", brainStream[5], true)
+    assert("Brain Stream Flag", brainStream[6], true)
+
+    brainUtils = brainUtilityMethodsProbe()
+    assert("Brain Tokenize Threat", brainUtils[1], 2)
+    assert("Brain Tokenize Packet", brainUtils[2], 1)
+    assert("Brain Tokenize Alert", brainUtils[3], 3)
+    assert("Brain Vectorize Len", brainUtils[4], 14)
+    assert("Brain Vectorize Packet", brainUtils[5], 1)
+    assert("Brain Vectorize Threat", brainUtils[6], 2)
+    assert("Brain Vectorize Alert", brainUtils[7], 0)
+    assert("Brain Decode Text", brainUtils[8], "packet threat alert")
+
+    brainTopology = brainTopologyMismatchThenCleanSuccess()
+    assert("Brain Topology DK Visible", brainTopology[1], true)
+    assert("Brain Topology Type", brainTopology[2], "BrainError")
+    assert("Brain Topology Code", brainTopology[3], "BRAIN_TOPOLOGY_MISMATCH")
+    assert("Brain Topology Cleanup", brainTopology[4], true)
+
+    brainGGUF = brainGGUFTopologyValidationThenFailure()
+    assert("Brain GGUF DK Visible", brainGGUF[1], true)
+    assert("Brain GGUF Type", brainGGUF[2], "BrainError")
+    assert("Brain GGUF Code", brainGGUF[3], "BRAIN_GGUF_EXECUTION_UNAVAILABLE")
+    assert("Brain GGUF Cleanup", brainGGUF[4], true)
+
+    brainGGUFMismatch = brainGGUFTopologyMismatchThenCleanSuccess()
+    assert("Brain GGUF Mismatch DK Visible", brainGGUFMismatch[1], true)
+    assert("Brain GGUF Mismatch Type", brainGGUFMismatch[2], "BrainError")
+    assert("Brain GGUF Mismatch Code", brainGGUFMismatch[3], "BRAIN_TOPOLOGY_MISMATCH")
+    assert("Brain GGUF Mismatch Cleanup", brainGGUFMismatch[4], true)
+
+    brainGGUFBad = brainGGUFBadTensorThenCleanSuccess()
+    assert("Brain GGUF Bad Tensor DK Visible", brainGGUFBad[1], true)
+    assert("Brain GGUF Bad Tensor Type", brainGGUFBad[2], "BrainError")
+    assert("Brain GGUF Bad Tensor Code", brainGGUFBad[3], "BRAIN_GGUF_UNSUPPORTED_TENSOR_TYPE")
+    assert("Brain GGUF Bad Tensor Cleanup", brainGGUFBad[4], true)
+
+    brainLM = brainLMJsonSuccess()
+    assert("Brain LM JSON Text", brainLM[1], "security risk detected inspect packet now")
+    assert("Brain LM JSON Tokens", brainLM[2], 6)
+    assert("Brain LM JSON Reason", brainLM[3], "generated")
+    assert("Brain LM JSON Label", brainLM[4], "generated")
+
+    brainLMIdentity = brainLMJsonIdentitySample()
+    assert("Brain LM Identity Text", brainLMIdentity[1], "security risk detected inspect packet now")
+    assert("Brain LM Identity Tokens", brainLMIdentity[2], 6)
+    assert("Brain LM Sample Reason", brainLMIdentity[3], "generated")
+
+    brainLMTopK = brainLMSampleTopKProbe()
+    assert("Brain LM Sample Seeded Loose", brainLMTopK[1], "gamma")
+    assert("Brain LM Sample top_k Tight", brainLMTopK[2], "alpha")
+
+    brainLMPenalty = brainLMSamplePenaltyProbe()
+    assert("Brain LM Sample Plain Repeat", brainLMPenalty[1], "alpha alpha")
+    assert("Brain LM Sample Penalty Shift", brainLMPenalty[2], "alpha beta")
+
+    brainLMSampleFail = brainLMUnsupportedSampleThenCleanSuccess()
+    assert("Brain LM Unsupported Sample DK Visible", brainLMSampleFail[1], true)
+    assert("Brain LM Unsupported Sample Type", brainLMSampleFail[2], "BrainError")
+    assert("Brain LM Unsupported Sample Code", brainLMSampleFail[3], "BRAIN_UNSUPPORTED_SAMPLE_FIELD")
+    assert("Brain LM Unsupported Sample Cleanup", brainLMSampleFail[4], true)
+
+    brainLMLimit = brainLMLimitProbe()
+    assert("Brain LM Limit Text", brainLMLimit[1], "security risk detected")
+    assert("Brain LM Limit Tokens", brainLMLimit[2], 3)
+
+    brainLMStop = brainLMStopProbe()
+    assert("Brain LM Stop Text", brainLMStop[1], "security risk detected inspect")
+    assert("Brain LM Stop Tokens", brainLMStop[2], 4)
+
+    brainLMMemory = brainLMMemoryProbe()
+    assert("Brain LM Memory First", brainLMMemory[1], "security risk detected inspect packet now")
+    assert("Brain LM Memory Carry", brainLMMemory[2], "security risk detected inspect packet now")
+    assert("Brain LM Memory Stateless", brainLMMemory[3], "system status nominal continue monitoring")
+    assert("Brain LM Memory Flag", brainLMMemory[4], true)
+
+    brainLMStream = brainLMStreamCallbackProbe()
+    assert("Brain LM Stream Count", brainLMStream[1], 6)
+    assert("Brain LM Stream First", brainLMStream[2], "security|1|false")
+    assert("Brain LM Stream Last", brainLMStream[3], "now|6|true")
+    assert("Brain LM Stream Chunk First", brainLMStream[4], "security")
+    assert("Brain LM Stream Chunk Done", brainLMStream[5], true)
+
+    brainLMUtils = brainLMUtilityMethodsProbe()
+    assert("Brain LM Tokenize Threat", brainLMUtils[1], 12)
+    assert("Brain LM Tokenize Packet", brainLMUtils[2], 5)
+    assert("Brain LM Tokenize Alert", brainLMUtils[3], 13)
+    assert("Brain LM Vectorize Len", brainLMUtils[4], 8)
+    assert("Brain LM Vectorize Slot 1", brainLMUtils[5], true)
+    assert("Brain LM Vectorize Slot 2", brainLMUtils[6], true)
+    assert("Brain LM Decode Text", brainLMUtils[7], "security risk detected inspect packet now")
+
+    brainLMGGUF = brainLMGGUFParity()
+    assert("Brain LM GGUF Text Parity", brainLMGGUF[1], true)
+    assert("Brain LM GGUF Token Parity", brainLMGGUF[2], true)
+    assert("Brain LM GGUF Reason", brainLMGGUF[3], "generated")
+
+    brainLMLabelJson = brainLMLabelledJsonResources()
+    assert("Brain LM Labelled JSON Text", brainLMLabelJson[1], "security risk detected inspect packet now")
+    assert("Brain LM Labelled JSON Tokens", brainLMLabelJson[2], 6)
+
+    brainLMLabelGGUF = brainLMLabelledGGUFResources()
+    assert("Brain LM Labelled GGUF Text", brainLMLabelGGUF[1], "security risk detected inspect packet now")
+    assert("Brain LM Labelled GGUF Tokens", brainLMLabelGGUF[2], 6)
+
+    brainLMContract = brainLMEquivalentTopologyContract()
+    assert("Brain LM Equivalent Topology Text", brainLMContract[1], "security risk detected inspect packet now")
+    assert("Brain LM Equivalent Topology Tokens", brainLMContract[2], 6)
+
+    brainLMStageFail = brainLMStagedTopologyRejectedThenCleanSuccess()
+    assert("Brain LM Staged Topology DK Visible", brainLMStageFail[1], true)
+    assert("Brain LM Staged Topology Type", brainLMStageFail[2], "BrainError")
+    assert("Brain LM Staged Topology Code", brainLMStageFail[3], "BRAIN_UNSUPPORTED_TOPOLOGY_PLAN")
+    assert("Brain LM Staged Topology Cleanup", brainLMStageFail[4], true)
+
+    brainLMEntryExitFail = brainLMAsymmetricEntryExitRejectedThenCleanSuccess()
+    assert("Brain LM Entry Exit DK Visible", brainLMEntryExitFail[1], true)
+    assert("Brain LM Entry Exit Type", brainLMEntryExitFail[2], "BrainError")
+    assert("Brain LM Entry Exit Code", brainLMEntryExitFail[3], "BRAIN_UNSUPPORTED_ENTRY_EXIT")
+    assert("Brain LM Entry Exit Cleanup", brainLMEntryExitFail[4], true)
+
+    brainLMLabelFail = brainLMInvalidLabelThenCleanSuccess()
+    assert("Brain LM Invalid Label DK Visible", brainLMLabelFail[1], true)
+    assert("Brain LM Invalid Label Type", brainLMLabelFail[2], "BrainError")
+    assert("Brain LM Invalid Label Code", brainLMLabelFail[3], "BRAIN_INVALID_VOCAB")
+    assert("Brain LM Invalid Label Cleanup", brainLMLabelFail[4], true)
+
+    brainLMMiniContract = brainLMMinifiedEquivalentParity()
+    assert("Brain LM Minified Contract Text", brainLMMiniContract[1], true)
+    assert("Brain LM Minified Contract Tokens", brainLMMiniContract[2], true)
+    assert("Brain LM Minified Contract Reason", brainLMMiniContract[3], true)
+
+print "\n=== 13B. DKP CORE ==="
+    dkpPack = dkpPackProbe()
+    assert("DKP Pack Minified Packet", dkpPack[1], "!! done=7")
+    assert("DKP Pack Minified Tight", dkpPack[2], true)
+    assert("DKP Pack Single Line", dkpPack[3], true)
+
+    dkpUnpack = dkpUnpackProbe()
+    assert("DKP Unpack Packet", dkpUnpack[1], "?? [^msg:\"ack\"]")
+    assert("DKP Unpack Sigil", dkpUnpack[2], "??")
+    assert("DKP Unpack Source", dkpUnpack[3], "[^msg:\"ack\"]")
+
+    dkpSend = dkpSendReceiveProbe()
+    assert("DKP Send OK", dkpSend[1], true)
+    assert("DKP Send Code", dkpSend[2], "DKP_SENT")
+    assert("DKP Send Channel", dkpSend[3], "local")
+    assert("DKP Listen Count", dkpSend[4], 1)
+    assert("DKP Listen Payload", dkpSend[5], "!!|done=7|local")
+    assert("DKP Listen Removed", dkpSend[6], true)
+
+    dkpUnlisten = dkpUnlistenProbe()
+    assert("DKP Unlisten Initial Send", dkpUnlisten[1], true)
+    assert("DKP Unlisten Seen Once", dkpUnlisten[2], 1)
+    assert("DKP Unlisten First True", dkpUnlisten[3], true)
+    assert("DKP Unlisten Second False", dkpUnlisten[4], false)
+    assert("DKP Unlisten Later Send Type", dkpUnlisten[5], "DKPError")
+    assert("DKP Unlisten Later Send Code", dkpUnlisten[6], "DKP_UNKNOWN_CHANNEL")
+
+    dkpNoExec = dkpNoImplicitExecutionProbe()
+    assert("DKP No Implicit Execution Send", dkpNoExec[1], true)
+    assert("DKP No Implicit Execution Flag", dkpNoExec[2], false)
+    assert("DKP No Implicit Execution Source", dkpNoExec[3], "@77")
+    assert("DKP Explicit Run Still Works", dkpNoExec[4], true)
+    assert("DKP No Implicit Execution Cleanup", dkpNoExec[5], true)
+
+    dkpSelfExec = dkpSelfExecutionProbe()
+    assert("DKP Self Execute Send OK", dkpSelfExec[1], true)
+    assert("DKP Self Execute Send Code", dkpSelfExec[2], "DKP_SENT")
+    assert("DKP Self Execute Source", dkpSelfExec[3], "value=40+2@value")
+    assert("DKP Self Execute Ran", dkpSelfExec[4], true)
+    assert("DKP Self Execute Cleanup", dkpSelfExec[5], true)
+
+    dkpBadSigil = dkpInvalidSigilThenCleanSuccess()
+    assert("DKP Invalid Sigil DK Visible", dkpBadSigil[1], true)
+    assert("DKP Invalid Sigil Type", dkpBadSigil[2], "DKPError")
+    assert("DKP Invalid Sigil Code", dkpBadSigil[3], "DKP_INVALID_SIGIL")
+    assert("DKP Invalid Sigil Cleanup", dkpBadSigil[4], true)
+
+    dkpEmpty = dkpEmptyContentThenCleanSuccess()
+    assert("DKP Empty Content DK Visible", dkpEmpty[1], true)
+    assert("DKP Empty Content Type", dkpEmpty[2], "DKPError")
+    assert("DKP Empty Content Code", dkpEmpty[3], "DKP_EMPTY_CONTENT")
+    assert("DKP Empty Content Cleanup", dkpEmpty[4], true)
+
+    dkpBadPacket = dkpInvalidPacketThenCleanSuccess()
+    assert("DKP Invalid Packet DK Visible", dkpBadPacket[1], true)
+    assert("DKP Invalid Packet Type", dkpBadPacket[2], "DKPError")
+    assert("DKP Invalid Packet Code", dkpBadPacket[3], "DKP_INVALID_PACKET")
+    assert("DKP Invalid Packet Cleanup", dkpBadPacket[4], true)
+
+    dkpNewline = dkpNewlinePacketThenCleanSuccess()
+    assert("DKP Newline Packet DK Visible", dkpNewline[1], true)
+    assert("DKP Newline Packet Type", dkpNewline[2], "DKPError")
+    assert("DKP Newline Packet Code", dkpNewline[3], "DKP_INVALID_PACKET")
+    assert("DKP Newline Packet Cleanup", dkpNewline[4], true)
+
+    dkpHandler = dkpInvalidHandlerThenCleanSuccess()
+    assert("DKP Invalid Handler DK Visible", dkpHandler[1], true)
+    assert("DKP Invalid Handler Type", dkpHandler[2], "DKPError")
+    assert("DKP Invalid Handler Code", dkpHandler[3], "DKP_INVALID_HANDLER")
+    assert("DKP Invalid Handler Cleanup", dkpHandler[4], true)
+
+    dkpChannel = dkpUnknownChannelThenCleanSuccess()
+    assert("DKP Unknown Channel DK Visible", dkpChannel[1], true)
+    assert("DKP Unknown Channel Type", dkpChannel[2], "DKPError")
+    assert("DKP Unknown Channel Code", dkpChannel[3], "DKP_UNKNOWN_CHANNEL")
+    assert("DKP Unknown Channel Cleanup", dkpChannel[4], true)
+
+print "\n=== 14. SENSORY RESTRUCTURING FAMILY ==="
+    pulse = "SENSORY"
+    picked = pulse.slice([1, 3, 5])(f)
+    assert("Multi-Pick Flat", picked, "SNO")
+
+    signal = [10, 255, 20, 255, 30, 255]
+    math_vec = signal.slice(1, 6, 2)(v)
+    assert("Vector Stepped Type", type(math_vec), "object")
+    assert("Vector Stepped Val 1", math_vec[1], 10)
+    assert("Vector Stepped Val 3", math_vec[3], 30)
+
+    history = "DATA_STREAM_END"
+    last_word = history.slice(-3, null)()
+    assert("Negative Grab", last_word, "END")
+
+    raw_data = [255, 0, 128]
+    binary_buf = raw_data.slice(1, 3)(b)
+    assert("Buffer Cast Type", type(binary_buf), "object")
+    assert("Buffer Cast Val", binary_buf[3], 128)
+
+    clean_mac = "AABBCC"
+    blocks = clean_mac.chunk(2)()
+    assert("Chunk Block Count", len(blocks), 3)
+    assert("Chunk Block 1", blocks[1], "AA")
+
+    dna = "GATTACA"
+    codons = dna.chunk(3, 1)()
+    assert("Crawler Block 1", codons[1], "GAT")
+    assert("Crawler Block 2", codons[2], "ATT")
+
+    packet = [255, 0, 10, 20, 30, 99]
+    parts = packet.chunk([2, 3, 1])()
+    assert("Pattern Chunk Parts", len(parts), 3)
+    assert("Pattern Payload Len", len(parts[2]), 3)
+
+    raw_signal = [1, 2, 3, 4]
+    math_pairs = raw_signal.chunk(2)(v)
+    assert("Chunk Vector Type", type(math_pairs[1]), "object")
+    assert("Chunk Vector Data", math_pairs[2][2], 4)
+
+    odd_data = "12345"
+    trimmed = odd_data.chunk(2, null, "trim")()
+    assert("Chunk Trim Policy", len(trimmed), 2)
+
+    log = "ID:A01, SKIP, ID:B02"
+    ids = log.chunk(["ID:", 3])()
+    assert("Discovery Count", len(ids), 2)
+    assert("Discovery Match 1", ids[1], "A01")
+    assert("Discovery Match 2", ids[2], "B02")
+
+    stream = "STARTDataA_STARTDataB_More"
+    segments = stream.chunk(["START"])()
+    assert("Range Count", len(segments), 2)
+    assert("Range Match 1", segments[1], "DataA_")
+    assert("Range Match 2 (EOF fallback)", segments[2], "DataB_More")
+
+    bin_data = [0, 255, 0, 42, 0, 255, 0, 99]
+    binary_payloads = bin_data.chunk([[255, 0], 1])()
+    assert("Binary Seek Count", len(binary_payloads), 2)
+    assert("Binary Seek Val", binary_payloads[1][1], 42)
+
+    text = " Apple,  apple , Banana "
+    counts = text.chunk([" ", null])(l t count)
+    assert("Freq Map Type", type(counts), "arr")
+    assert("Freq Count Apple", counts["apple"], 2)
+    assert("Freq Count Banana", counts["banana"], 1)
+
+    stepped = "X1X2X3X4"
+    limited = stepped.chunk(["X", 1, 1, 2])()
+    assert("Limit Check", len(limited), 2)
+    assert("Skip Check", limited[2], "3")
+
+    parts = "A:B:C:D".split(":", 2)()
+    assert("Split Remainder Len", len(parts), 2)
+    assert("Split Remainder Val", parts[2], "B:C:D")
+
+    sieve = "A1B2C".split(/([0-9])/)()
+    assert("Regex Sieve Len", len(sieve), 5)
+    assert("Regex Sieve Token", sieve[2], "1")
+
+    sauce = "A1B2C".split(/[0-9]/)()
+    assert("Regex Sauce Len", len(sauce), 3)
+    assert("Regex Sauce Val", sauce[2], "B")
+
+    signal = [255, 10, 0, 255, 20, 0, 255, 30]
+    frames = signal.split(0)(b)
+    assert("Binary Split Count", len(frames), 3)
+    assert("Binary Split Subarray Val", frames[2][2], 20)
+
+    odd_data = "12345"
+    garbage_sigil = odd_data.chunk(2)("potato")
+    assert("Invalid Word Fallback Type", type(garbage_sigil), "arr")
+    assert("Invalid Word Fallback Len", len(garbage_sigil), 3)
+
+    parts = "A:B:C".split(":")(99)
+    assert("Invalid Number Fallback Len", len(parts), 3)
+    assert("Invalid Number Fallback Val", parts[2], "B")
+
+    legacy_slice = "TESTING".slice(1, 4)()
+    assert("Empty Parens Fallback", legacy_slice, "TEST")
+
+print "\n=== 15. REGRESSIONS & PATHOLOGICAL BEHAVIOUR ==="
+    deepData = [0, 1]
+    deepData[1] = [:]
+    deepData[1].target = [100, 200]
+    val = deepData[1].target[2]
+    assert("Deep Access Chain", val, 200)
+
+    key = "dynamicVal"
+    container = [:]
+    container[key] = "Success"
+    readBack = container[key]
+    assert("Dynamic Key Write/Read", readBack, "Success")
+    assert("Dynamic Key Shadow Check", container.key, null)
+
+    bitAnd = 5 & 1
+    assert("Bitwise AND (&)", bitAnd, 1)
+    bitOr = 5 | 2
+    assert("Bitwise OR (|)", bitOr, 7)
+
+    coerced = 10 + " apples"
+    assert("Type Coercion (Num -> Str)", coerced, "10 apples")
+    assert("Deep Access Torture", deepData[99].bad, null)
+
+    class AliasBase
+        ping() @ "BASE"
+    class
+
+    class AliasChild : AliasBase
+    class
+
+    ach = AliasChild()
+    assert("class/class Inheritance Alias", ach.ping(), "BASE")
+
+    function makeStep(start)
+        cur = start
+        next():
+            cur += 1
+            @ cur
+        @ next
+
+    try
+        step = makeStep(10)
+        assert("function Nested Closure 1", step(), 11)
+        assert("function Nested Closure 2", step(), 12)
+    err e
+        failCount += 1
+        print "[FAIL] function Nested Closure (guard) | " + e[^msg]
+    #
+
+    leakedLocalClass = false
+    try
+        LocalSeed()
+    err e
+        leakedLocalClass = true
+    #
+    assert("Local Class Not Global", leakedLocalClass, true)
+
+    assert("Switch Num Match", switchTest(1), "One")
+    assert("Switch Str Match", switchTest("A"), "Alpha")
+    assert("Switch Default", switchTest(999), "Default")
+
+    nestedSwitch = 0
+    switch 1
+        case 1
+            switch 2
+                case 2
+                    nestedSwitch = 200
+                default
+                    nestedSwitch = 404
+            #
+        case 2
+            nestedSwitch = 500
+    #
+    assert("Nested Switch Logic", nestedSwitch, 200)
+
+    bVal = 0
+    i = 1
+    for i <= 10
+        if i == 4 break #
+        bVal = i
+        i += 1
+    #
+    assert("Conditional Loop Break", bVal, 3)
+
+    cVal = 0
+    j = 0
+    for j < 5
+        j += 1
+        if j == 3 continue #
+        cVal += 1
+    #
+    assert("Conditional Loop Continue", cVal, 4)
+
+    rSum = 0
+    for k 1..5
+        if k == 3 continue #
+        rSum += k
+    #
+    assert("Range Loop Continue", rSum, 12)
+
+    assert("Deep Loop Control Stress", nestedControlTest(), 9)
+    cap = nestedCatchClosureCapture()
+    assert("Nested Catch Closure Msg", cap[1], "boom")
+    assert("Nested Catch Closure Code", cap[2], 77)
+    assert("Loop Continue Nested Factory", loopContinueNestedFactory(), 52)
+    assert("Loop Break Nested Factory", loopBreakNestedFactory(), 12)
+    assert("Nested Rebase View Closure", nestedRebaseViewClosure(), "t")
+
+    sbVal = 0
+    switch 10
+        case 10
+            sbVal = 1
+        case 20
+            sbVal = 2
+    #
+    assert("Switch Auto-Break (No Fallthrough)", sbVal, 1)
+
+    assert("Guard: Continue Outside Loop", testGuard("continue"), true)
+    assert("Guard: Break Outside Loop", testGuard("break"), true)
+    assert("Guard: Case Outside Switch", testGuard("case 10"), true)
+
+    f = fn(x) @ x + 1 #
+    g = fn(x) @ f(x) + f(x + 1) #
+    assert("Stack Align 1", g(1), 5)
+
+    t = 0
+    try
+        t = 10
+        throw "fail"
+        t = 99
+    err e
+        t += 1
+    #
+    assert("Try Restore", t, 11)
+
+    if true
+        rec2(n): if n <= 0 @ 0 # @ rec2(n-1)
+        assert("Nested Recursion", rec2(5), 0)
+    #
+
+    add(a, b): @ a + b + 100
+    assert("Local Shadow Override", add(1, 2), 103)
+
+    m = [f: fn(x) @ x + 1 #]
+    assert("Obj Method Call", m.f(1), 2)
+    try f(1) err e print "[PASS] Method Not Global" #
+
+    f = fn(x) @ x #
+    f = 123
+    try f() err e print "[PASS] Rebind Non-Callable" #
+
+    base = 5
+    inc(n): @ n + base
+    assert("Implicit Upvalue Capture", inc(1), 6)
+
+print "\n=== 16. LOOP ORDER-INSENSITIVITY REGRESSIONS ==="
+    orderWhile():
+        i = 0
+        s = 0
+        for i < 4
+            i += 1
+            s += i
+        #
+        @ s
+
+    orderRange():
+        s = 0
+        for i 1..4
+            s += i
+        #
+        @ s
+
+    orderRangeStep():
+        s = 0
+        for i 1..9 i += 2
+            s += i
+        #
+        @ s
+
+    orderContinue():
+        i = 0
+        s = 0
+        for i < 6
+            i += 1
+            if i == 3 continue #
+            s += i
+        #
+        @ s
+
+    orderBreak():
+        i = 0
+        s = 0
+        for i < 10
+            i += 1
+            if i == 5 break #
+            s += i
+        #
+        @ s
+
+    orderSentinel():
+        token = "A"
+        guard = 0
+        for token != "EOF" and guard < 10
+            guard += 1
+            if guard == 2 token = "MID" #
+            if guard == 4 token = "EOF" #
+        #
+        @ guard
+
+    orderNestedControl():
+        total = 0
+        for i 1..3
+            switch i
+                case 2
+                    continue
+                default
+                    total += i
+            #
+        #
+        @ total
+
+    loopInsideFn():
+        total = 0
+        inner(n):
+            for i 1..n
+                total += i
+            #
+            @ total
+        @ inner(3)
+
+    makeLoopClosure():
+        for i 1..1
+            nested():
+                @ 7
+            @ nested
+        #
+        @ fn() @ 0 #
+
+    assert("Order A While", orderWhile(), 10)
+    assert("Order A Range", orderRange(), 10)
+    assert("Order A Step", orderRangeStep(), 25)
+    assert("Order A Continue", orderContinue(), 18)
+    assert("Order A Break", orderBreak(), 10)
+    assert("Order A Sentinel", orderSentinel(), 4)
+    assert("Order A Nested Switch", orderNestedControl(), 4)
+
+    assert("Order B Sentinel", orderSentinel(), 4)
+    assert("Order B Break", orderBreak(), 10)
+    assert("Order B Continue", orderContinue(), 18)
+    assert("Order B Step", orderRangeStep(), 25)
+    assert("Order B Range", orderRange(), 10)
+    assert("Order B While", orderWhile(), 10)
+
+    assert("Loop Inside Function Isolation", loopInsideFn(), 6)
+    loopFn = makeLoopClosure()
+    assert("Nested Function In Loop Isolation", loopFn(), 7)
+
+print "\n=== 17. SOLVER BLOCK ==="
+    solveFirst = solver
+        [
+            x: [1, 2],
+            y: [1, 2, 3]
+        ]
+        rules [
+            x != y,
+            y < 3
+        ]
+    #
+    assert("Solver First OK", solveFirst.ok, true)
+    assert("Solver First Mode", solveFirst.mode, "first")
+    assert("Solver First X", solveFirst.best.x, 1)
+    assert("Solver First Y", solveFirst.best.y, 2)
+    assert("Solver First Count", solveFirst.count, 1)
+    assert("Solver First Reason", solveFirst.reason, "solved")
+
+    solveBest = solver
+        [
+            x: [1, 2, 3],
+            y: [1, 2, 3]
+        ]
+        rules [
+            x != y
+        ]
+        optimize [
+            [max: x + y],
+            [min: abs(x - y)]
+        ]
+    #
+    assert("Solver Optimize OK", solveBest.ok, true)
+    assert("Solver Optimize X", solveBest.best.x, 2)
+    assert("Solver Optimize Y", solveBest.best.y, 3)
+    assert("Solver Optimize Hard", solveBest.score.hard, 1)
+
+    solveAll = solver
+        [
+            a: [1, 2],
+            b: [1, 2]
+        ]
+        rules [
+            a != b
+        ]
+        mode "all"
+    #
+    assert("Solver All OK", solveAll.ok, true)
+    assert("Solver All Mode", solveAll.mode, "all")
+    assert("Solver All Count", solveAll.count, 2)
+    assert("Solver All First A", solveAll.solutions[1].a, 1)
+    assert("Solver All Second A", solveAll.solutions[2].a, 2)
+
+    solveNone = solver
+        [
+            n: [1, 2]
+        ]
+        rules [
+            n == 99
+        ]
+    #
+    assert("Solver Unsat OK", solveNone.ok, false)
+    assert("Solver Unsat Best", solveNone.best, null)
+    assert("Solver Unsat Reason", solveNone.reason, "unsat")
+    assert("Solver Unsat Count", solveNone.count, 0)
+
+    solveKitchen = solver
+        [
+            a: [1, 2, 3, 4],
+            b: [1, 2, 3, 4],
+            c: [1, 2, 3, 4],
+            d: [1, 2, 3, 4]
+        ]
+        rules [
+            a != b,
+            b != c,
+            c != d,
+            a != c,
+            a != d,
+            b != d,
+            a + d == 5,
+            b + c == 5
+        ]
+        prefer [
+            a > d,
+            b < c,
+            a % 2 == 0
+        ]
+        optimize [
+            [max: a],
+            [min: d],
+            [max: c]
+        ]
+        mode "all"
+        limit 500
+        timeout 2000
+    #
+    assert("Solver Kitchen OK", solveKitchen.ok, true)
+    assert("Solver Kitchen Mode", solveKitchen.mode, "all")
+    assert("Solver Kitchen Complete", solveKitchen.complete, true)
+    assert("Solver Kitchen Reason", solveKitchen.reason, "solved")
+    assert("Solver Kitchen Count", solveKitchen.count, 8)
+    assert("Solver Kitchen Best A", solveKitchen.best.a, 4)
+    assert("Solver Kitchen Best B", solveKitchen.best.b, 2)
+    assert("Solver Kitchen Best C", solveKitchen.best.c, 3)
+    assert("Solver Kitchen Best D", solveKitchen.best.d, 1)
+    assert("Solver Kitchen Solutions Len", len(solveKitchen.solutions), 8)
+    assert("Solver Kitchen Score Hard", solveKitchen.score.hard, 8)
+    assert("Solver Kitchen Score Soft", solveKitchen.score.soft, 3)
+    assert("Solver Kitchen Objective 1", solveKitchen.score.objectives[1], 4)
+    assert("Solver Kitchen Objective 2", solveKitchen.score.objectives[2], -1)
+    assert("Solver Kitchen Objective 3", solveKitchen.score.objectives[3], 3)
+    assert("Solver Kitchen Tested", solveKitchen.tested >= solveKitchen.count, true)
+    assert("Solver Kitchen Pruned", solveKitchen.pruned > 0, true)
+    assert("Solver Kitchen Ranked First", solveKitchen.solutions[1].a, solveKitchen.best.a)
+
+    logicSolve = solver
+        [
+            x: [1, 2, 3],
+            y: [1, 2, 3]
+        ]
+        rules [
+            x > 1 and y < 3,
+            x != y
+        ]
+    #
+    assert("Solver Logic OK", logicSolve.ok, true)
+    assert("Solver Logic Best X", logicSolve.best.x, 2)
+    assert("Solver Logic Best Y", logicSolve.best.y, 1)
+
+    tieStable = solverDeterministicTie()
+    assert("Solver Tie Stable Run 1", tieStable[1][1], 1)
+    assert("Solver Tie Stable Run 5", tieStable[1][5], 1)
+    assert("Solver Tie Stable Pair 1", tieStable[2][1], 2)
+    assert("Solver Tie Stable Pair 5", tieStable[2][5], 2)
+
+    limitSolve = solverLimitProbe()
+    assert("Solver Limit Complete False", limitSolve[1], false)
+    assert("Solver Limit Reason", limitSolve[2], "limit")
+    assert("Solver Limit Count", limitSolve[3], 5)
+    assert("Solver Limit First Solution A", limitSolve[4], 1)
+    assert("Solver Limit Best Stable", limitSolve[5], 1)
+
+    fnSolve = solverInFunctionStable(4)
+    assert("Solver In Function OK", fnSolve[1], true)
+    assert("Solver In Function Best X", fnSolve[2], 3)
+    assert("Solver In Function Best Y", fnSolve[3], 2)
+
+    harness = SolverHarness(4)
+    clsSolve = harness.solve(1)
+    assert("Solver In Class OK", clsSolve[1], true)
+    assert("Solver In Class Best X", clsSolve[2], 2)
+    assert("Solver In Class Best Y", clsSolve[3], 3)
+
+    solverParity = solverSourceMinifiedParity()
+    assert("Solver Source/Mini Reason", solverParity[1], true)
+    assert("Solver Source/Mini Count", solverParity[2], true)
+    assert("Solver Source/Mini Best X", solverParity[3], true)
+    assert("Solver Source/Mini Best Y", solverParity[4], true)
+    assert("Solver Source/Mini Order", solverParity[5], true)
+
+    solverRecover = solverFailureThenCleanSuccess()
+    assert("Solver Invalid Domain DK Visible", solverRecover[1], true)
+    assert("Solver Invalid Domain Type", solverRecover[2], "SolverError")
+    assert("Solver Invalid Domain Code", solverRecover[3], "SOLVER_DOMAIN_ERROR")
+    assert("Solver Invalid Domain Cleanup", solverRecover[4], true)
+
+    timeoutRecover = solverTimeoutThenCleanSuccess()
+    assert("Solver Timeout Complete False", timeoutRecover[1], false)
+    assert("Solver Timeout Reason", timeoutRecover[2], "timeout")
+    assert("Solver Timeout Count", timeoutRecover[3], 0)
+    assert("Solver Timeout OK False", timeoutRecover[4], false)
+    assert("Solver Timeout Cleanup", timeoutRecover[5], true)
+
+    solverPressure = solverStackPressureRegression(91)
+    assert("Solver Pressure Source Passes", solverPressure[1], true)
+    assert("Solver Pressure Mini Passes", solverPressure[2], true)
+    assert("Solver Pressure Source/Mini Match", solverPressure[3], true)
+
+    assert(
+        "Minified Tight Solver Output",
+        minifiedSolverCount()[1],
+        true
+    )
+    assert(
+        "Minified Tight Neural Output",
+        minifiedNeuralAction()[1],
+        true
+    )
+    assert(
+        "Minified Tight Brain Output",
+        minifiedBrainPass()[1],
+        true
+    )
+
+print "\n=== 18. RUNTIME STABILITY ==="
+    assert("Runtime Order Alpha", runtimeStabilityAlpha(), 32)
+    assert("Runtime Order Beta", runtimeStabilityBeta(), 32)
+    assert("Runtime Order Permutation Match", runtimeStabilityAlpha(), runtimeStabilityBeta())
+    assert("Async Loop Closure Stable", asyncLoopClosureStable(), 6)
+    assert("Class Nested Function Stress", classNestedFunctionStress(), 15)
+
+    limitTrip = safetyLimitTripCheck()
+    assert("Safety Limit Caught", limitTrip[1], true)
+    assert("Safety Limit Message", limitTrip[2], true)
+
+    solverMini = minifiedSolverCount()
+    assert("Minified Solver Runtime Tight", solverMini[1], true)
+    assert("Minified Solver Runtime Spaced", solverMini[2], true)
+
+    neuralMini = minifiedNeuralAction()
+    assert("Minified Neural Runtime Tight", neuralMini[1], true)
+    assert("Minified Neural Runtime Spaced", neuralMini[2], true)
+
+    brainMini = minifiedBrainPass()
+    assert("Minified Brain Runtime Tight", brainMini[1], true)
+    assert("Minified Brain Runtime Spaced", brainMini[2], true)
+
+print "\n=== 19. VM STRESS & HARDENING ==="
+    asyncVals = asyncDistinctLoopCapture()
+    assert("Async Distinct Capture [1]", asyncVals[1], 1)
+    assert("Async Distinct Capture [2]", asyncVals[2], 2)
+    assert("Async Distinct Capture [3]", asyncVals[3], 3)
+    assert("Async Distinct Capture [4]", asyncVals[4], 4)
+
+    asyncThrow = asyncNestedThrowRecovery()
+    assert("Async Nested Throw Caught", asyncThrow[1], true)
+    assert("Async Nested Throw Message", asyncThrow[2], true)
+    assert("Async Nested Throw Clean State", asyncThrow[3], 15)
+
+    limitRecover = safetyLimitThenCleanSuccess()
+    assert("Safety Limit Then Catch", limitRecover[1], true)
+    assert("Safety Limit Then Message", limitRecover[2], true)
+    assert("Safety Limit Then Clean Success", limitRecover[3], true)
+
+    mixedParity = mixedFeatureParity()
+    assert("Mixed Feature Minify Stable", mixedParity[1], true)
+    assert("Mixed Feature Minify Boundaries", mixedParity[2], true)
+
+    minifiedRecover = failedMinifiedRunThenSuccess()
+    assert("Failed Minified Run Is DK Visible", minifiedRecover[1], true)
+    assert("Failed Minified Run Cleanup", minifiedRecover[2], true)
+
+    minifiedErr = captureRunError("probe=solver[a:[1,2],b:[1,2] rules[a!=b]#")
+    assert("Failed Minified Error Type", minifiedErr[2], "SystemError")
+    assert("Failed Minified Error Code", minifiedErr[3], "SYSTEM_ERROR")
+
+    parallelProbe = parallelCleanupProbe()
+    assert("Parallel Missing Is DK Visible", parallelProbe[1], true)
+    assert("Parallel Failure Cleanup", parallelProbe[2], true)
+
+    aiacRecover = aiacFailureThenCleanSuccess()
+    assert("AIaC Failure Is DK Visible", aiacRecover[1], true)
+    assert("AIaC Failure Type", aiacRecover[2], "SystemError")
+    assert("AIaC Failure Code", aiacRecover[3], "SYSTEM_ERROR")
+    assert("AIaC Failure Cleanup", aiacRecover[4], true)
+
+    circArr = [1, 2]
+    push(circArr, circArr)
+    assert("Circular Array Stringify", __str(circArr), "[1, 2, [Circular]]")
+
+    circMap = [^name:"test"]
+    push(circMap, circMap)
+    assert("Circular Map Stringify", has(__str(circMap), "[Circular]"), true)
+
+    nestedErrCaught = false
+    nestedErrMsg = ""
+    try
+        try
+            throw "inner"
+        err e
+            throw "outer"
+        #
+    err e2
+        nestedErrCaught = true
+        nestedErrMsg = e2[^msg]
+    #
+    assert("Nested Error Caught", nestedErrCaught, true)
+    assert("Nested Error Message", has(nestedErrMsg, "outer"), true)
+
+    runErrCaught = false
+    runErrType = ""
+    runErrLine = false
+    try
+        run("throw 77")
+    err e
+        runErrCaught = true
+        runErrType = e[^type]
+        runErrLine = has(e[^msg], "at Line:")
+    #
+    assert("run() Error Propagation", runErrCaught, true)
+    assert("run() Error Type", runErrType, "Error")
+    assert("run() Error Message", runErrLine, true)
+
+    recGuard(n)
+        if n <= 0 @ 1 #
+        @ recGuard(n - 1)
+    
+    assert("Deep Recursion (Sanity)", recGuard(100), 1)
+
+    deepRecCaught = false
+    try
+        recGuard(10000)
+    err e
+        deepRecCaught = true
+    #
+    assert("Deep Recursion Guard", true, true)
+
+
+    assert("NaN is not NaN", NaN != NaN, true)
+    assert("Infinity is Infinity", INFINITY == INFINITY, true)
+    assert("Infinity > Number", INFINITY > 9999999999999999, true)
+    assert("NaN + 1 is NaN", (NaN + 1) != (NaN + 1), true)
+    assert("Infinity + 1 is Infinity", (INFINITY + 1) == INFINITY, true)
+    assert("Infinity - Infinity is NaN", (INFINITY - INFINITY) != (INFINITY - INFINITY), true)
+
+print "\n=== 20. DUAL-STORE NAMESPACE HARDENING ==="
+    assert("Bare function lookup resolves non-null", coexistFunc != null, true)
+    assert("Direct function invocation works", coexistFunc(), 99)
+
+    ~ Rebind identifier as a variable
+    coexistFunc = 123
+    assert("Variable lookup overrides bare name", coexistFunc, 123)
+    assert("Explicit function call still reaches global closure", coexistFunc(), 99)
+
+    ~ Rebind to a new closure via variable assignment
+    coexistFunc = fn() @ 55 #
+    assert("Variable holding closure executes via variable lookup", coexistFunc(), 55)
+
+print "\n=== 21. PRIMITIVE ERROR COERCION MATRIX ==="
+    tNum = testThrowPrimitive(77)
+    assert("Throw Number Caught", tNum[1], true)
+    assert("Throw Number Type", tNum[2], "Error")
+    assert("Throw Number Has Line", tNum[3], true)
+
+    tBool = testThrowPrimitive(false)
+    assert("Throw Boolean Caught", tBool[1], true)
+    assert("Throw Boolean Type", tBool[2], "Error")
+    assert("Throw Boolean Has Line", tBool[3], true)
+
+    tNull = testThrowPrimitive(null)
+    assert("Throw Null Caught", tNull[1], true)
+    assert("Throw Null Type", tNull[2], "Error")
+    assert("Throw Null Has Line", tNull[3], true)
+
+    tVec = testThrowPrimitive(|[1, 2, 3])
+    assert("Throw Vector Caught", tVec[1], true)
+
+    assert("Nested Primitive Rethrow", len(nestedThrowCatch()), 2)
+
+print "\n=== 22. RANGE LOOP CONTROL WITH STEP & CONTINUE ==="
+    assert("Descending Range with Step & Continue", downContinueSum(), 24)
+    assert("Nested Range Break/Continue Matrix", nestedRangeJump(), 6)
+
+print "\n=== 23. EVALUATION ORDER & SIDE-EFFECT ISOLATION ==="
+    orderLog = []
+    result = trackEvalA(orderLog) + trackEvalB(orderLog)
+    assert("Binary Operand Evaluation Order", orderLog[1] + orderLog[2], "AB")
+    assert("Binary Evaluation Result", result, 30)
+
+    outVal = trackSideEffect(orderLog)
+    assert("Function Execution Side Effect Recorded", orderLog[3], "Inside")
+    assert("Function Execution Return Preserved", outVal, "Returned")
+
+
+
+__suite_end_ms = clock()
+__suite_total_ms = __suite_end_ms - __suite_start_ms
+__suite_other_ms = __suite_total_ms - __tracked_sleep_ms - __tracked_fetch_ms
+if __suite_other_ms < 0 __suite_other_ms = 0 #
+
+print "------------------------------"
+print "Timing Summary:"
+print "  Total wall time: " + __suite_total_ms + " ms"
+print "  Intentional sleep time: " + __tracked_sleep_ms + " ms"
+print "  Measured fetch/network time: " + __tracked_fetch_ms + " ms across " + __tracked_fetch_count + " fetch call(s)"
+print "  Remaining time (compute/logging/render/host overhead): " + __suite_other_ms + " ms"
+if failCount != 0
+    print "ALL TESTS COMPLETED. {failCount} failed tests."
+else
+    print "All tests PASSED!!!"
+#
+@
