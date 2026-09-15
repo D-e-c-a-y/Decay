@@ -199,12 +199,30 @@ class Lexer {
                 }
             }
             
-            const isDoubleSlash = this.input.slice(pos, pos+2) === '//';
+            // 1. Multiline Block Comment (~~ ... ~~)
+            if (this.input.slice(pos, pos + 2) === '~~') {
+                pos += 2;
+                const startLine = currentLine;
+                while (pos < this.input.length && this.input.slice(pos, pos + 2) !== '~~') {
+                    if (this.input[pos] === '\n') {
+                        currentLine++;
+                    }
+                    pos++;
+                }
+                if (pos >= this.input.length) {
+                    this.error("Unterminated block comment", startLine);
+                }
+                pos += 2; // Skip closing '~~'
+                continue;
+            }
+
+            // 2. Single-line Comment (~ or //)
+            const isDoubleSlash = this.input.slice(pos, pos + 2) === '//';
             const isTilde = char === '~'; 
             
             if (isDoubleSlash || isTilde) { 
                 pos += isDoubleSlash ? 2 : 1;
-                while(pos < this.input.length && this.input[pos] !== '\n') {
+                while (pos < this.input.length && this.input[pos] !== '\n') {
                     pos++; 
                 }
                 continue; 
