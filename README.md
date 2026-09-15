@@ -84,6 +84,28 @@ DK.exe
 DK.exe run script.dk
 ```
 
+### Web Usage
+Decay compiles and runs entirely client-side in the browser—no server backend, Node.js installation, or container environment required.
+
+Interactive Online Playground: Write and run Decay code directly in your browser with real-time output and syntax minification:
+
+    https://d-e-c-a-y.github.io/Decay/
+
+Drop-In Embed (dk.min.js): Add the self-contained virtual machine to any website or web application with a single script tag:
+
+```html
+<script src="dk.min.js"></script>
+<script>
+// Execute Decay scripts directly on the client
+Decay.run(
+   recipients = ["Web", "Agent", "World"]
+    for i 1..3
+        print "Hello, " + recipients[i] + "!"
+    #
+);
+</script>    
+```
+
 ---
 
 ## AI as Code Primitives
