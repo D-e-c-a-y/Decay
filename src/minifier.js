@@ -38,7 +38,17 @@ class Minifier {
             }
             if (t.type === 'EOF') continue;
 
+            if (this.isOptionalFunctionKeyword(tokens, i)) {
+                continue;
+            }
+
+            // Canonicalize 'return' keyword to '@'
+            if (t.type === 'RETURN') {
+                t.value = '@';
+            }
+
             let inserted = "";
+
             if (sawNewline && lastVal === '@' && t.value !== '#') {
                 // Preserve bare return/newline boundaries when flattening to one line.
                 // Without this, `@` can accidentally absorb the next declaration.
@@ -46,11 +56,15 @@ class Minifier {
                 inserted = "#";
             }
             else if (sawNewline && aiBlockDepth > 0) {
-                // AI DSL blocks are clause-oriented. Inside them, newline should
-                // collapse to a plain space so line-separated clauses remain in
-                // the same block rather than becoming separate statements.
-                output += " ";
-                inserted = " ";
+                // Only insert a space between words/clauses that actually require separation.
+                // Brackets, colons, commas, and block terminators never need spaces around them.
+                const prevIsDelim = ['[', '(', '{', ':', ',', '#'].includes(lastVal);
+                const nextIsDelim = [']', ')', '}', ':', ',', '#'].includes(t.value);
+
+                if (!prevIsDelim && !nextIsDelim) {
+                    output += " ";
+                    inserted = " ";
+                }
             }
             else if (
                 sawNewline &&
@@ -221,8 +235,10 @@ class Minifier {
         if (!tokens[index + 1] || tokens[index + 1].value !== '(') return false;
 
         const prev = tokens[index - 1];
+        const hasFnPrefix = prev && prev.type === 'FN';
         const startsAtDeclarationBoundary =
             index === 0 ||
+            hasFnPrefix ||
             (prev && prev.type === 'NL') ||
             (prev && prev.type === 'HASH') ||
             (prev && prev.type === 'CLASS_SIGIL') ||
@@ -264,7 +280,7 @@ class Minifier {
         // following line. Without this guard, ordinary calls such as
         // `modArr(myA)` followed by another statement get re-labeled as
         // declarations and acquire a bogus trailing `:`.
-        if (next.line > first.line) {
+        if (!hasFnPrefix && next.line > first.line) {
             return this.tokenIndent(next) > this.tokenIndent(first);
         }
 
@@ -289,6 +305,14 @@ class Minifier {
             }
         }
         return false;
+    }
+
+    isOptionalFunctionKeyword(tokens, index) {
+        const tok = tokens[index];
+        if (!tok || tok.type !== 'FN') return false;
+        const next = tokens[index + 1];
+        const afterNext = tokens[index + 2];
+        return !!(next && next.type === 'var' && afterNext && afterNext.value === '(');
     }
 
     startsClassDeclaration(token) {
@@ -477,7 +501,7 @@ class Minifier {
         if (!lastType) return false;
 
         const isWordType = (type) => [
-            'var', 'num', 'FN', 'RETURN', 'IF', 'ELSE', 'FOR',
+            'var', 'num', 'FN', 'IF', 'ELSE', 'FOR',
             'USE', 'AS', 'TRY', 'ERR', 'THROW', 'BREAK', 'CONTINUE',
             'SWITCH', 'CASE', 'DEFAULT', 'CLASS', 'NEURAL', 'BRAIN', 'SOLVER'
         ].includes(type);
