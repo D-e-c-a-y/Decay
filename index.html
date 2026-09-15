@@ -84,6 +84,22 @@ print generateGreetings()
     <div id="console">Ready.</div>
 </div>
 
-<script src="src/browser_ui.js?v=20260403f"></script>
+<script>
+function clearLog() {
+    const consoleElem = document.getElementById("console");
+    if (consoleElem) consoleElem.innerHTML = "Ready.";
+}
+
+function copyOutput() {
+    const consoleElem = document.getElementById("console");
+    if (!consoleElem) return;
+    navigator.clipboard.writeText(consoleElem.innerText || "").then(() => {
+        alert("Console output copied to clipboard.");
+    });
+}
+
+window.clearLog = clearLog;
+window.copyOutput = copyOutput;
+</script>
 </body>
 </html>
