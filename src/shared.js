@@ -22,30 +22,11 @@ window.intern = function(str) {
 };
 
 // Export globals for modules to use without colliding with runtime script globals
-var DKIntern = window.intern;
-var DKSymbolTable = window.SymbolTable;
 var DKLexer = window.Lexer;
 var DKParser = window.Parser;
 var DKCompiler = window.Compiler;
 var DKVM = window.VM;
 var DKMinifier = window.Minifier;
-var DKCanonicalMinifier = window.DKMin;
-
-
-/**
- * MOCK FILESYSTEM (Updated with std/math for imports)
- */
-/*const MOCK_FS = {
-        "std/math": `
-            pi = 3.14159
-            add = fn(a, b) @ a + b 
-        #
-        @ [pi: pi, add: add]
-        `
-    };
-if (typeof globalThis !== "undefined") {
-    globalThis.MOCK_FS = MOCK_FS;
-}*/
 
 function __dk_mock_gguf_string_bytes(str) {
     return Array.from(new TextEncoder().encode(String(str)));
@@ -379,7 +360,7 @@ function __dk_mock_brain_sampling_json() {
 
 // Virtual Filesystem Data
     const MOCK_FS_DATA = {
-        "test/std/math": `
+        "std/math": `
             pi = 3.14159
             add = fn(a, b) @ a + b
             mathMethod = fn(p) @ p * 2
@@ -704,27 +685,27 @@ async function runDK(codeOverride = null, options = {}) {
 
     try {
         // 1. Lex & Parse (instrumented to pinpoint stalls)
-        log("Lexing...");
+        //log("Lexing...");
         const lexer = new DKLexer(userCode);
         const tokens = lexer.tokenize();
-        log(`Lexed ${tokens.length} tokens.`);
+        //log(`Lexed ${tokens.length} tokens.`);
 
-        log("Parsing...");
+        //log("Parsing...");
         const parser = new DKParser(tokens, log);
         const ast = parser.parse();
-        log(`Parsed ${ast.length} top-level nodes.`);
+        //log(`Parsed ${ast.length} top-level nodes.`);
 
         // 2. COMPILE (The New Step)
-        log("Compiling...");
+        //log("Compiling...");
         const compiler = new DKCompiler(log);
         const chunk = compiler.compile(ast);
         
         // Debug: Show the Bytecode
-        console.log("Bytecode:", chunk.code);
-        console.log("Constants:", chunk.constants);
+        //console.log("Bytecode:", chunk.code);
+        //console.log("Constants:", chunk.constants);
 
         // 3. EXECUTE (The New Engine)
-        log("Running VM...");
+        //log("Running VM...");
         const vm = new DKVM(log);
         if (typeof vm.setRuntimeFlags === "function") {
             vm.setRuntimeFlags(window.DK_FLAGS || {});
@@ -743,7 +724,6 @@ async function runDK(codeOverride = null, options = {}) {
         
         log("<div class='success'>[ VM FINISHED ]</div>");
         return { ok: true };
-
     } catch (e) {
         log(`<div class='error'>${escapeHtml(formatHostError(e))}</div>`);
         console.error(e);
@@ -906,10 +886,6 @@ window.minifyDK = async function() {
     return runMinifierUI(DKMinifier, "MINIFY");
 };
 
-window.minifyDK2 = async function() {
-    return runMinifierUI(DKCanonicalMinifier, "DKMin");
-};
-
 /**
  * Other helpers
  */
@@ -1056,6 +1032,3 @@ if (typeof module !== 'undefined') {
         dkBufferCreate
     };
 }
-
-
-console.log("[HEARTBEAT] shared.js loaded.");
